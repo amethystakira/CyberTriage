@@ -31,3 +31,8 @@ app.add_middleware(
 DATABASE = Path(__file__).resolve().parent.parent / "cybertriage.db"
 EVIDENCE_DIR = Path(__file__).resolve().parents[2] / "evidence"
 MAX_EVIDENCE_BYTES = 25 * 1024 * 1024
+
+def get_db():
+    connection = sqlite3.connect(DATABASE)
+    connection.row_factory = sqlite3.Row
+    return connection
