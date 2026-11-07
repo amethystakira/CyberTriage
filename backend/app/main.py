@@ -27,3 +27,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+DATABASE = Path(__file__).resolve().parent.parent / "cybertriage.db"
+EVIDENCE_DIR = Path(__file__).resolve().parents[2] / "evidence"
+MAX_EVIDENCE_BYTES = 25 * 1024 * 1024
