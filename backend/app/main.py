@@ -57,3 +57,13 @@ def initialize_db():
             )
         """)
 
+        db.executescript("""
+            CREATE TABLE IF NOT EXISTS evidence (
+                evidence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id TEXT,
+                original_name TEXT NOT NULL,
+                stored_name TEXT NOT NULL,
+                sha256 TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                uploaded_at TEXT NOT NULL,
+                FOREIGN KEY(case_id) REFERENCES investigations(case_id)
