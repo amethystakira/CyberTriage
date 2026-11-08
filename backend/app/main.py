@@ -168,3 +168,6 @@ class InvestigationCreate(BaseModel):
     name: str
     investigator: str = "A. Pal"
     severity: str = "Unassigned"
+
+class InvestigationStatusUpdate(BaseModel):
+    status: str
