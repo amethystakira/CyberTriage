@@ -327,3 +327,6 @@ class FindingCreate(BaseModel):
     description: str
     severity: str = "Medium"
     case_id: Optional[str] = None
+
+class FindingStatusUpdate(BaseModel):
+    status: str
