@@ -77,3 +77,12 @@ def initialize_db():
                 status TEXT NOT NULL DEFAULT 'Open',
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(case_id) REFERENCES investigations(case_id)
+            );
+            CREATE TABLE IF NOT EXISTS analysis_runs (
+                run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                evidence_id INTEGER NOT NULL,
+                summary TEXT NOT NULL,
+                indicators_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(evidence_id) REFERENCES evidence(evidence_id)
+            ); 
