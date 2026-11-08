@@ -361,3 +361,16 @@ def create_finding(finding: FindingCreate):
         record_event(db, "Finding recorded", f"Recorded finding: {title}", finding.case_id)
         row = db.execute("SELECT * FROM findings WHERE finding_id = ?", (cursor.lastrowid,)).fetchone()
     return dict(row)
+
+@app.patch("/api/findings/{finding_id}")
+def update_finding_status(finding_id: int, update: FindingStatusUpdate):
+    if update.status not in {"Open", "Resolved"}:
+        raise HTTPException(status_code=400, detail="Status must be Open or Resolved.")
+    with get_db() as db:
+        finding = db.execute("SELECT * FROM findings WHERE finding_id = ?", (finding_id,)).fetchone()
+        if not finding:
+            raise HTTPException(status_code=404, detail="Finding not found.")
+        db.execute("UPDATE findings SET status = ? WHERE finding_id = ?", (update.status, finding_id))
+        record_event(db, "Finding status updated", f"Marked finding {finding_id} {update.status.lower()}.", finding["case_id"])
+        updated = db.execute("SELECT * FROM findings WHERE finding_id = ?", (finding_id,)).fetchone()
+    return dict(updated)
