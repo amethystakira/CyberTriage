@@ -263,3 +263,14 @@ def dashboard_counts():
             "evidence": db.execute("SELECT COUNT(*) FROM evidence").fetchone()[0],
             "completed": db.execute("SELECT COUNT(*) FROM investigations WHERE lower(status) = 'completed'").fetchone()[0],
         }
+
+@app.get("/api/evidence")
+def get_evidence():
+    with get_db() as db:
+        rows = db.execute("""
+            SELECT e.evidence_id, e.case_id, e.original_name, e.sha256, e.size_bytes,
+                   e.uploaded_at, i.name AS case_name
+            FROM evidence e LEFT JOIN investigations i ON i.case_id = e.case_id
+            ORDER BY e.evidence_id DESC
+        """).fetchall()
+    return [dict(row) for row in rows]
