@@ -42,3 +42,18 @@ def record_event(db, event_type, description, case_id=None, occurred_at=None):
         "INSERT INTO timeline_events (case_id, event_type, description, occurred_at) VALUES (?, ?, ?, ?)",
         (case_id, event_type, description, occurred_at or datetime.now().astimezone().isoformat(timespec="seconds")),
     )
+
+def initialize_db():
+    with get_db() as db:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS investigations (
+                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                investigator TEXT NOT NULL,
+                date TEXT NOT NULL,
+                status TEXT NOT NULL,
+                severity TEXT NOT NULL
+            )
+        """)
+
