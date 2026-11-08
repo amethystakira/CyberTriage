@@ -127,3 +127,17 @@ def initialize_db():
                     "Critical",
                 ),
             ]
+
+            db.executemany("""
+                INSERT INTO investigations
+                (case_id, name, investigator, date, status, severity)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, sample_cases)
+
+        missing_events = db.execute("""
+            SELECT i.case_id, i.name, i.date FROM investigations i
+            WHERE NOT EXISTS (
+                SELECT 1 FROM timeline_events t
+                WHERE t.case_id = i.case_id AND t.event_type = 'Investigation created'
+            )
+        """).fetchall()
