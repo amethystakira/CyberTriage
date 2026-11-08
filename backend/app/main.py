@@ -171,3 +171,11 @@ class InvestigationCreate(BaseModel):
 
 class InvestigationStatusUpdate(BaseModel):
     status: str
+
+@app.get("/")
+def home():
+    return {
+        "application": "CyberTriage",
+        "status": "online",
+        "version": "0.2.0",
+    }
