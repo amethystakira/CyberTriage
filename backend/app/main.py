@@ -321,3 +321,9 @@ async def upload_evidence(file: UploadFile = File(...), case_id: str = Form(defa
         raise
     return {"evidence_id": evidence_id, "case_id": case_id, "original_name": original_name,
             "sha256": digest, "size_bytes": len(content), "uploaded_at": uploaded_at}
+
+class FindingCreate(BaseModel):
+    title: str
+    description: str
+    severity: str = "Medium"
+    case_id: Optional[str] = None
