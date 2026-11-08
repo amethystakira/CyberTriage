@@ -374,3 +374,15 @@ def update_finding_status(finding_id: int, update: FindingStatusUpdate):
         record_event(db, "Finding status updated", f"Marked finding {finding_id} {update.status.lower()}.", finding["case_id"])
         updated = db.execute("SELECT * FROM findings WHERE finding_id = ?", (finding_id,)).fetchone()
     return dict(updated)
+
+@app.get("/api/analysis")
+def get_analysis_runs():
+    with get_db() as db:
+        rows = db.execute("""
+            SELECT r.run_id, r.evidence_id, r.summary, r.indicators_json, r.created_at,
+                   e.original_name
+            FROM analysis_runs r JOIN evidence e ON e.evidence_id = r.evidence_id
+            ORDER BY r.run_id DESC
+        """).fetchall()
+    return [{**dict(row), "indicators": json.loads(row["indicators_json"])} for row in rows]
+
