@@ -341,3 +341,23 @@ def get_findings():
             ORDER BY f.finding_id DESC
         """).fetchall()
     return [dict(row) for row in rows]
+
+@app.post("/api/findings", status_code=201)
+def create_finding(finding: FindingCreate):
+    title = finding.title.strip()
+    description = finding.description.strip()
+    if not title or not description:
+        raise HTTPException(status_code=400, detail="Finding title and description are required.")
+    if finding.severity not in {"Low", "Medium", "High", "Critical"}:
+        raise HTTPException(status_code=400, detail="Severity must be Low, Medium, High, or Critical.")
+    with get_db() as db:
+        if finding.case_id and not db.execute("SELECT 1 FROM investigations WHERE case_id = ?", (finding.case_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Investigation not found.")
+        created_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        cursor = db.execute("""
+            INSERT INTO findings (case_id, title, description, severity, status, created_at)
+            VALUES (?, ?, ?, ?, 'Open', ?)
+        """, (finding.case_id, title, description, finding.severity, created_at))
+        record_event(db, "Finding recorded", f"Recorded finding: {title}", finding.case_id)
+        row = db.execute("SELECT * FROM findings WHERE finding_id = ?", (cursor.lastrowid,)).fetchone()
+    return dict(row)
