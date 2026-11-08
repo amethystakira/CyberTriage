@@ -274,3 +274,21 @@ def get_evidence():
             ORDER BY e.evidence_id DESC
         """).fetchall()
     return [dict(row) for row in rows]
+
+@app.get("/api/evidence/{evidence_id}/download")
+def download_evidence(evidence_id: int):
+    with get_db() as db:
+        row = db.execute(
+            "SELECT original_name, stored_name FROM evidence WHERE evidence_id = ?",
+            (evidence_id,),
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Evidence item not found.")
+    file_path = EVIDENCE_DIR / row["stored_name"]
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Stored evidence file is missing.")
+    return FileResponse(
+        path=file_path,
+        filename=row["original_name"],
+        media_type="application/octet-stream",
+    )
