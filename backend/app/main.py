@@ -86,3 +86,12 @@ def initialize_db():
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(evidence_id) REFERENCES evidence(evidence_id)
             ); 
+            CREATE TABLE IF NOT EXISTS timeline_events (
+                event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id TEXT,
+                event_type TEXT NOT NULL,
+                description TEXT NOT NULL,
+                occurred_at TEXT NOT NULL,
+                FOREIGN KEY(case_id) REFERENCES investigations(case_id)
+            );
+        """)
