@@ -253,3 +253,13 @@ def update_case_status(case_id: str, update: InvestigationStatusUpdate):
             FROM investigations WHERE case_id = ?
         """, (case_id,)).fetchone()
     return dict(updated)
+
+@app.get("/api/dashboard/counts")
+def dashboard_counts():
+    with get_db() as db:
+        return {
+            "investigations": db.execute("SELECT COUNT(*) FROM investigations").fetchone()[0],
+            "findings": db.execute("SELECT COUNT(*) FROM findings").fetchone()[0],
+            "evidence": db.execute("SELECT COUNT(*) FROM evidence").fetchone()[0],
+            "completed": db.execute("SELECT COUNT(*) FROM investigations WHERE lower(status) = 'completed'").fetchone()[0],
+        }
