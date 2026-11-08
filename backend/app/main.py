@@ -197,3 +197,13 @@ def get_cases():
         """).fetchall()
 
     return [dict(row) for row in rows]
+
+@app.post("/api/cases", status_code=201)
+def create_case(case: InvestigationCreate):
+    name = case.name.strip()
+
+    if not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Investigation name cannot be empty.",
+        )
