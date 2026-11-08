@@ -237,3 +237,19 @@ def create_case(case: InvestigationCreate):
         """, (case_id,)).fetchone()
 
     return dict(created)
+
+@app.patch("/api/cases/{case_id}")
+def update_case_status(case_id: str, update: InvestigationStatusUpdate):
+    if update.status not in {"Pending", "Analyzing", "Completed"}:
+        raise HTTPException(status_code=400, detail="Status must be Pending, Analyzing, or Completed.")
+    with get_db() as db:
+        case = db.execute("SELECT name, status FROM investigations WHERE case_id = ?", (case_id,)).fetchone()
+        if not case:
+            raise HTTPException(status_code=404, detail="Investigation not found.")
+        db.execute("UPDATE investigations SET status = ? WHERE case_id = ?", (update.status, case_id))
+        record_event(db, "Investigation status updated", f"Changed {case['name']} from {case['status']} to {update.status}.", case_id)
+        updated = db.execute("""
+            SELECT case_id, name, investigator, date, status, severity
+            FROM investigations WHERE case_id = ?
+        """, (case_id,)).fetchone()
+    return dict(updated)
