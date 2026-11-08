@@ -330,3 +330,14 @@ class FindingCreate(BaseModel):
 
 class FindingStatusUpdate(BaseModel):
     status: str
+
+@app.get("/api/findings")
+def get_findings():
+    with get_db() as db:
+        rows = db.execute("""
+            SELECT f.finding_id, f.case_id, f.title, f.description, f.severity, f.status,
+                   f.created_at, i.name AS case_name
+            FROM findings f LEFT JOIN investigations i ON i.case_id = f.case_id
+            ORDER BY f.finding_id DESC
+        """).fetchall()
+    return [dict(row) for row in rows]
