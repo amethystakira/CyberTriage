@@ -154,3 +154,9 @@ def initialize_db():
             JOIN investigations i ON i.case_id = t.case_id
             WHERE t.event_type = 'Investigation created' AND t.description LIKE 'Investigation recorded:%'
         """).fetchall()
+        for event in legacy_events:
+            try:
+                case_date = datetime.strptime(event["date"], "%d %b %Y").astimezone().isoformat(timespec="seconds")
+            except ValueError:
+                continue
+            db.execute("UPDATE timeline_events SET occurred_at = ? WHERE event_id = ?", (case_date, event["event_id"]))
