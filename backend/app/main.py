@@ -67,3 +67,13 @@ def initialize_db():
                 size_bytes INTEGER NOT NULL,
                 uploaded_at TEXT NOT NULL,
                 FOREIGN KEY(case_id) REFERENCES investigations(case_id)
+            );
+            CREATE TABLE IF NOT EXISTS findings (
+                finding_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                case_id TEXT,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'Open',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(case_id) REFERENCES investigations(case_id)
