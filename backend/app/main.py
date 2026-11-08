@@ -148,3 +148,9 @@ def initialize_db():
             except ValueError:
                 case_date = None
             record_event(db, "Investigation created", f"Investigation recorded: {item['name']}", item["case_id"], case_date)
+
+        legacy_events = db.execute("""
+            SELECT t.event_id, i.date FROM timeline_events t
+            JOIN investigations i ON i.case_id = t.case_id
+            WHERE t.event_type = 'Investigation created' AND t.description LIKE 'Investigation recorded:%'
+        """).fetchall()
