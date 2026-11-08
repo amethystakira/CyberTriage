@@ -212,3 +212,28 @@ def create_case(case: InvestigationCreate):
         next_number = db.execute(
             "SELECT COALESCE(MAX(row_id), 0) + 1 FROM investigations"
         ).fetchone()[0]
+
+        case_id = f"CASE-{datetime.now().year}-{next_number:03d}"
+        date = datetime.now().strftime("%d %b %Y")
+
+        db.execute("""
+            INSERT INTO investigations
+            (case_id, name, investigator, date, status, severity)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            case_id,
+            name,
+            case.investigator,
+            date,
+            "Pending",
+            case.severity,
+        ))
+        record_event(db, "Investigation created", f"Created investigation: {name}", case_id)
+
+        created = db.execute("""
+            SELECT case_id, name, investigator, date, status, severity
+            FROM investigations
+            WHERE case_id = ?
+        """, (case_id,)).fetchone()
+
+    return dict(created)
