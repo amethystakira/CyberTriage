@@ -110,3 +110,20 @@ def initialize_db():
                     "Analyzing",
                     "High",
                 ),
+               (
+                    "CASE-2026-002",
+                    "Endpoint Security Review",
+                    "A. Pal",
+                    "02 Nov 2026",
+                    "Completed",
+                    "Medium",
+                ),
+                (
+                    "CASE-2026-003",
+                    "Unauthorized File Access",
+                    "A. Pal",
+                    "01 Nov 2026",
+                    "Pending",
+                    "Critical",
+                ),
+            ]
