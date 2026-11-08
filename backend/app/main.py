@@ -207,3 +207,8 @@ def create_case(case: InvestigationCreate):
             status_code=400,
             detail="Investigation name cannot be empty.",
         )
+
+    with get_db() as db:
+        next_number = db.execute(
+            "SELECT COALESCE(MAX(row_id), 0) + 1 FROM investigations"
+        ).fetchone()[0]
