@@ -95,3 +95,18 @@ def initialize_db():
                 FOREIGN KEY(case_id) REFERENCES investigations(case_id)
             );
         """)
+
+        existing = db.execute(
+            "SELECT COUNT(*) FROM investigations"
+        ).fetchone()[0]
+
+        if existing == 0:
+            sample_cases = [
+                (
+                    "CASE-2026-001",
+                    "Suspicious Network Activity",
+                    "A. Pal",
+                    "03 Nov 2026",
+                    "Analyzing",
+                    "High",
+                ),
