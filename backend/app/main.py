@@ -141,3 +141,10 @@ def initialize_db():
                 WHERE t.case_id = i.case_id AND t.event_type = 'Investigation created'
             )
         """).fetchall()
+
+        for item in missing_events:
+            try:
+                case_date = datetime.strptime(item["date"], "%d %b %Y").astimezone().isoformat(timespec="seconds")
+            except ValueError:
+                case_date = None
+            record_event(db, "Investigation created", f"Investigation recorded: {item['name']}", item["case_id"], case_date)
