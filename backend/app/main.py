@@ -292,3 +292,32 @@ def download_evidence(evidence_id: int):
         filename=row["original_name"],
         media_type="application/octet-stream",
     )
+
+@app.post("/api/evidence", status_code=201)
+async def upload_evidence(file: UploadFile = File(...), case_id: str = Form(default="")):
+    original_name = Path(file.filename or "evidence.bin").name
+    content = await file.read(MAX_EVIDENCE_BYTES + 1)
+    await file.close()
+    if len(content) > MAX_EVIDENCE_BYTES:
+        raise HTTPException(status_code=413, detail="Evidence file exceeds the 25 MB upload limit.")
+    case_id = case_id.strip() or None
+    stored_name = f"{uuid.uuid4().hex}_{original_name}"
+    digest = hashlib.sha256(content).hexdigest()
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+    (EVIDENCE_DIR / stored_name).write_bytes(content)
+    uploaded_at = datetime.now().astimezone().isoformat(timespec="seconds")
+    try:
+        with get_db() as db:
+            if case_id and not db.execute("SELECT 1 FROM investigations WHERE case_id = ?", (case_id,)).fetchone():
+                raise HTTPException(status_code=404, detail="Investigation not found.")
+            cursor = db.execute("""
+                INSERT INTO evidence (case_id, original_name, stored_name, sha256, size_bytes, uploaded_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (case_id, original_name, stored_name, digest, len(content), uploaded_at))
+            evidence_id = cursor.lastrowid
+            record_event(db, "Evidence added", f"Added evidence file: {original_name}", case_id)
+    except Exception:
+        (EVIDENCE_DIR / stored_name).unlink(missing_ok=True)
+        raise
+    return {"evidence_id": evidence_id, "case_id": case_id, "original_name": original_name,
+            "sha256": digest, "size_bytes": len(content), "uploaded_at": uploaded_at}
