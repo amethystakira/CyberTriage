@@ -160,3 +160,11 @@ def initialize_db():
             except ValueError:
                 continue
             db.execute("UPDATE timeline_events SET occurred_at = ? WHERE event_id = ?", (case_date, event["event_id"]))
+
+initialize_db()
+
+
+class InvestigationCreate(BaseModel):
+    name: str
+    investigator: str = "A. Pal"
+    severity: str = "Unassigned"
