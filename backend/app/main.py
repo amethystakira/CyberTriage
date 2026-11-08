@@ -36,3 +36,9 @@ def get_db():
     connection = sqlite3.connect(DATABASE)
     connection.row_factory = sqlite3.Row
     return connection
+
+def record_event(db, event_type, description, case_id=None, occurred_at=None):
+    db.execute(
+        "INSERT INTO timeline_events (case_id, event_type, description, occurred_at) VALUES (?, ?, ?, ?)",
+        (case_id, event_type, description, occurred_at or datetime.now().astimezone().isoformat(timespec="seconds")),
+    )
