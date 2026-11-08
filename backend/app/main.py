@@ -186,3 +186,14 @@ def health():
         "status": "healthy",
         "service": "CyberTriage API",
     }
+
+@app.get("/api/cases")
+def get_cases():
+    with get_db() as db:
+        rows = db.execute("""
+            SELECT case_id, name, investigator, date, status, severity
+            FROM investigations
+            ORDER BY row_id DESC
+        """).fetchall()
+
+    return [dict(row) for row in rows]
