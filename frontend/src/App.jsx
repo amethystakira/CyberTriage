@@ -132,12 +132,20 @@ function App() {
             <strong>{activePage}</strong>
           </div>
 
-          <div className="topbar-right">
-            <div className="environment-badge">
-              <span className="status-dot"></span>
-              Development Environment
+        <div className="topbar-right">
+            <div className="current-date">
+                {new Date().toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                })}
             </div>
-          </div>
+
+            <div className="environment-badge">
+                <span className="status-dot"></span>
+                Development Environment
+            </div>
+        </div>
         </header>
 
         <section className="content">

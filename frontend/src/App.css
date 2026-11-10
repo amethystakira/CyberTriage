@@ -488,3 +488,11 @@ button {
 .activity-section {
   margin-top: 0;
 }
+
+.current-date {
+  font-size: 11px;
+  color: #758196;
+  font-weight: 500;
+  padding-right: 14px;
+  border-right: 1px solid #e5e9ef;
+}
