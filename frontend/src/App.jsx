@@ -60,6 +60,15 @@ function EmptyState({ icon: Icon, title, description }) {
 function App() {
   const [activePage, setActivePage] = useState("Overview");
 
+  const currentHour = new Date().getHours();
+
+  const greeting =
+    currentHour < 12
+      ? "Good morning"
+      : currentHour < 18
+      ? "Good afternoon"
+      : "Good evening";
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -135,7 +144,7 @@ function App() {
           <div className="page-heading">
             <div>
               <div className="eyebrow">INVESTIGATION CENTER</div>
-              <h1>Good evening, Investigator</h1>
+              <h1>{greeting}, Investigator</h1>
               <p>
                 Here's an overview of your digital forensic
                 investigations.
