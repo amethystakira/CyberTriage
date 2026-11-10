@@ -1,14 +1,24 @@
 import { useState } from "react";
+import {
+  LayoutDashboard,
+  FolderSearch,
+  HardDrive,
+  ScanSearch,
+  AlertTriangle,
+  Clock3,
+  FileBarChart,
+} from "lucide-react";
+
 import "./App.css";
 
 const navigation = [
-  "Overview",
-  "Investigations",
-  "Evidence",
-  "Analysis",
-  "Findings",
-  "Timeline",
-  "Reports",
+  { label: "Overview", icon: LayoutDashboard },
+  { label: "Investigations", icon: FolderSearch },
+  { label: "Evidence", icon: HardDrive },
+  { label: "Analysis", icon: ScanSearch },
+  { label: "Findings", icon: AlertTriangle },
+  { label: "Timeline", icon: Clock3 },
+  { label: "Reports", icon: FileBarChart },
 ];
 
 function App() {
@@ -30,15 +40,16 @@ function App() {
 
           {navigation.map((item) => (
             <button
-              key={item}
-              className={`nav-item ${
-                activePage === item ? "active" : ""
-              }`}
-              onClick={() => setActivePage(item)}
+                key={item.label}
+                className={`nav-item ${
+                activePage === item.label ? "active" : ""
+                }`}
+                onClick={() => setActivePage(item.label)}
             >
-              {item}
+                <item.icon size={18} />
+                <span>{item.label}</span>
             </button>
-          ))}
+            ))}
         </nav>
       </aside>
 
