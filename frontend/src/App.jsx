@@ -44,6 +44,19 @@ function StatCard({ icon: Icon, label, value, color }) {
   );
 }
 
+function EmptyState({ icon: Icon, title, description }) {
+  return (
+    <div className="activity-empty">
+      <div className="activity-empty-icon">
+        <Icon size={22} />
+      </div>
+
+      <p>{title}</p>
+      <span>{description}</span>
+    </div>
+  );
+}
+
 function App() {
   const [activePage, setActivePage] = useState("Overview");
 
@@ -183,17 +196,11 @@ function App() {
                   </button>
                 </div>
 
-                <div className="activity-empty">
-                    <div className="activity-empty-icon">
-                        <Activity size={22} />
-                    </div>
-
-                    <p>No recent activity</p>
-
-                    <span>
-                        Activity will appear here as investigations progress.
-                    </span>
-                </div>
+              <EmptyState
+                icon={Activity}
+                title="No recent activity"
+                description="Activity will appear here as investigations progress."
+                />
               </div>
             </>
           )}
