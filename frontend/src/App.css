@@ -480,3 +480,11 @@ button {
   background: #f0f4fa;
   color: #6482aa;
 }
+
+.stats-grid {
+  margin-bottom: 28px;
+}
+
+.activity-section {
+  margin-top: 0;
+}
