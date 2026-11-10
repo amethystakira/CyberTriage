@@ -412,3 +412,59 @@ button {
   background: #20589f;
   transform: translateY(-1px);
 }
+
+
+.activity-section {
+  margin-top: 28px;
+  background: #fff;
+  border: 1px solid #e8ebf0;
+  border-radius: 10px;
+  padding: 22px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 15px;
+  color: #202b3c;
+}
+
+.section-heading p {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #8993a4;
+}
+
+.text-button {
+  border: none;
+  background: transparent;
+  color: #2868bb;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.activity-empty {
+  margin-top: 22px;
+  padding: 28px;
+  text-align: center;
+  border: 1px dashed #e0e5ed;
+  border-radius: 8px;
+}
+
+.activity-empty p {
+  margin: 0 0 6px;
+  color: #536176;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.activity-empty span {
+  color: #8993a4;
+  font-size: 11px;
+}

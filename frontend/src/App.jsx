@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   LayoutDashboard,
@@ -21,7 +22,6 @@ const navigation = [
   { label: "Reports", icon: FileBarChart },
 ];
 
-
 function StatCard({ icon: Icon, label, value, color }) {
   return (
     <div className="stat-card">
@@ -36,13 +36,12 @@ function StatCard({ icon: Icon, label, value, color }) {
       <div className="stat-bottom">
         <strong>{value}</strong>
         <span className="stat-change">
-            Overview metric
+          Overview metric
         </span>
       </div>
     </div>
   );
 }
-
 
 function App() {
   const [activePage, setActivePage] = useState("Overview");
@@ -59,30 +58,31 @@ function App() {
         </div>
 
         <div className="workspace">
-            <div className="workspace-avatar">IU</div>
-            <div>
-                <strong>Investigation Unit</strong>
-                <span>Local workspace</span>
-            </div>
-            </div>
+          <div className="workspace-avatar">IU</div>
+          <div>
+            <strong>Investigation Unit</strong>
+            <span>Local workspace</span>
+          </div>
+        </div>
 
-            <nav className="nav-section">
+        <nav className="nav-section">
           <span className="nav-heading">WORKSPACE</span>
 
           {navigation.map((item) => (
             <button
-                key={item.label}
-                className={`nav-item ${
+              key={item.label}
+              className={`nav-item ${
                 activePage === item.label ? "active" : ""
-                }`}
-                onClick={() => setActivePage(item.label)}
+              }`}
+              onClick={() => setActivePage(item.label)}
             >
-                <item.icon size={18} />
-                <span>{item.label}</span>
+              <item.icon size={18} />
+              <span>{item.label}</span>
             </button>
-            ))}
+          ))}
         </nav>
-      <div className="sidebar-bottom">
+
+        <div className="sidebar-bottom">
           <div className="system-status">
             <span className="status-dot"></span>
             <div>
@@ -103,70 +103,94 @@ function App() {
 
       <main className="main-area">
         <header className="topbar">
-        <div className="topbar-left">
+          <div className="topbar-left">
             <span>Workspace</span>
             <span className="breadcrumb-divider">/</span>
             <strong>{activePage}</strong>
-        </div>
+          </div>
 
-        <div className="topbar-right">
+          <div className="topbar-right">
             <div className="environment-badge">
-            <span className="status-dot"></span>
-            Development Environment
+              <span className="status-dot"></span>
+              Development Environment
             </div>
-        </div>
+          </div>
         </header>
 
         <section className="content">
-        <div className="page-heading">
+          <div className="page-heading">
             <div>
-                <div className="eyebrow">INVESTIGATION CENTER</div>
-                <h1>Good evening, Investigator</h1>
-                <p>
+              <div className="eyebrow">INVESTIGATION CENTER</div>
+              <h1>Good evening, Investigator</h1>
+              <p>
                 Here's an overview of your digital forensic
                 investigations.
-                </p>
+              </p>
             </div>
 
             {activePage === "Overview" && (
-                <button className="primary-button">
+              <button className="primary-button">
                 <span>+</span>
                 New Investigation
-                </button>
+              </button>
             )}
-        </div>
+          </div>
 
-        {activePage === "Overview" && (
-            <section className="stats-grid">
-            <StatCard
-                icon={FolderSearch}
-                label="Investigations"
-                value="0"
-                color="blue"
-            />
+          {activePage === "Overview" && (
+            <>
+              <section className="stats-grid">
+                <StatCard
+                  icon={FolderSearch}
+                  label="Investigations"
+                  value="0"
+                  color="blue"
+                />
 
-            <StatCard
-                icon={AlertTriangle}
-                label="Findings"
-                value="0"
-                color="orange"
-            />
+                <StatCard
+                  icon={AlertTriangle}
+                  label="Findings"
+                  value="0"
+                  color="orange"
+                />
 
-            <StatCard
-                icon={HardDrive}
-                label="Evidence Items"
-                value="0"
-                color="purple"
-            />
+                <StatCard
+                  icon={HardDrive}
+                  label="Evidence Items"
+                  value="0"
+                  color="purple"
+                />
 
-            <StatCard
-                icon={LayoutDashboard}
-                label="Completed Investigations"
-                value="0"
-                color="green"
-            />
-            </section>
-        )}
+                <StatCard
+                  icon={LayoutDashboard}
+                  label="Completed Investigations"
+                  value="0"
+                  color="green"
+                />
+              </section>
+
+              <div className="activity-section">
+                <div className="section-heading">
+                  <div>
+                    <h2>Recent Activity</h2>
+                    <p>
+                      Latest updates across your investigations
+                    </p>
+                  </div>
+
+                  <button className="text-button">
+                    View all
+                  </button>
+                </div>
+
+                <div className="activity-empty">
+                  <p>No recent activity</p>
+                  <span>
+                    Activity will appear here as investigations progress.
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </section>
       </main>
     </div>
