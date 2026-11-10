@@ -425,15 +425,15 @@ def analyze_evidence(evidence_id: int):
     return {"evidence_id": evidence_id, "summary": summary, "indicators": indicators, "created_at": created_at}
 
     @app.get("/api/timeline")
-def get_timeline(case_id: Optional[str] = None):
-    with get_db() as db:
-        query = """
-            SELECT t.event_id, t.case_id, t.event_type, t.description, t.occurred_at,
-                   i.name AS case_name
-            FROM timeline_events t LEFT JOIN investigations i ON i.case_id = t.case_id
-        """
-        if case_id:
-            rows = db.execute(query + " WHERE t.case_id = ? ORDER BY t.event_id DESC", (case_id,)).fetchall()
-        else:
-            rows = db.execute(query + " ORDER BY t.event_id DESC").fetchall()
-    return [dict(row) for row in rows]
+    def get_timeline(case_id: Optional[str] = None):
+        with get_db() as db:
+            query = """
+                SELECT t.event_id, t.case_id, t.event_type, t.description, t.occurred_at,
+                       i.name AS case_name
+                FROM timeline_events t LEFT JOIN investigations i ON i.case_id = t.case_id
+            """
+            if case_id:
+                rows = db.execute(query + " WHERE t.case_id = ? ORDER BY t.event_id DESC", (case_id,)).fetchall()
+            else:
+                rows = db.execute(query + " ORDER BY t.event_id DESC").fetchall()
+        return [dict(row) for row in rows]
