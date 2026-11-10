@@ -437,3 +437,14 @@ def analyze_evidence(evidence_id: int):
             else:
                 rows = db.execute(query + " ORDER BY t.event_id DESC").fetchall()
         return [dict(row) for row in rows]
+
+    @app.get("/api/reports")
+    def get_report_data():
+        return {
+            "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "investigations": get_cases(),
+            "evidence": get_evidence(),
+            "findings": get_findings(),
+        "timeline": get_timeline(),
+        "analysis_runs": get_analysis_runs(),
+    }
