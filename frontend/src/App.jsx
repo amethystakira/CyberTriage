@@ -120,13 +120,20 @@ function App() {
         <section className="content">
         <div className="page-heading">
             <div>
-            <div className="eyebrow">INVESTIGATION CENTER</div>
-            <h1>{activePage}</h1>
-            <p>
-                Manage your digital forensic investigations
-                from one centralized workspace.
-            </p>
+                <div className="eyebrow">INVESTIGATION CENTER</div>
+                <h1>Good evening, Investigator</h1>
+                <p>
+                Here's an overview of your digital forensic
+                investigations.
+                </p>
             </div>
+
+            {activePage === "Overview" && (
+                <button className="primary-button">
+                <span>+</span>
+                New Investigation
+                </button>
+            )}
         </div>
 
         {activePage === "Overview" && (

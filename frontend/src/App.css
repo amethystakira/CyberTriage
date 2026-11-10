@@ -393,3 +393,22 @@ button {
   align-items: center;
   gap: 3px;
 }
+
+.primary-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: #2868bb;
+  color: #fff;
+  border-radius: 7px;
+  padding: 11px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.primary-button:hover {
+  background: #20589f;
+  transform: translateY(-1px);
+}
