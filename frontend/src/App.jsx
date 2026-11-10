@@ -59,6 +59,23 @@ function App() {
             </button>
             ))}
         </nav>
+      <div className="sidebar-bottom">
+          <div className="system-status">
+            <span className="status-dot"></span>
+            <div>
+              <strong>API Online</strong>
+              <span>Local backend</span>
+            </div>
+          </div>
+
+          <div className="profile">
+            <div className="profile-avatar">AP</div>
+            <div>
+              <strong>A. Pal</strong>
+              <span>Local investigator</span>
+            </div>
+          </div>
+        </div>
       </aside>
 
       <main className="main-area">

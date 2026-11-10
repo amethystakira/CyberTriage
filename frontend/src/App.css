@@ -188,3 +188,71 @@ button {
   font-size: 10px;
   margin-top: 3px;
 }
+
+/* Sidebar bottom section */
+
+.sidebar-bottom {
+  margin-top: auto;
+}
+
+.system-status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: #f7faf8;
+  border: 1px solid #eaf1eb;
+  padding: 12px;
+  border-radius: 9px;
+  margin-bottom: 17px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #31ad72;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.system-status strong {
+  font-size: 11px;
+  display: block;
+}
+
+.system-status span:last-child {
+  font-size: 10px;
+  color: #929bad;
+}
+
+.profile {
+  border-top: 1px solid #edf0f5;
+  padding-top: 17px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-avatar {
+  width: 35px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  background: #e9edfa;
+  color: #465b9a;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 9px;
+}
+
+.profile strong {
+  display: block;
+  font-size: 12px;
+}
+
+.profile span {
+  display: block;
+  color: #929bad;
+  font-size: 10px;
+  margin-top: 3px;
+}
