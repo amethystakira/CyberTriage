@@ -256,3 +256,43 @@ button {
   font-size: 10px;
   margin-top: 3px;
 }
+
+/* Top navigation bar */
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.topbar-left,
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.topbar-left {
+  color: #929bad;
+  font-size: 12px;
+}
+
+.topbar-left strong {
+  color: #293448;
+}
+
+.breadcrumb-divider {
+  color: #c7ccd5;
+}
+
+.environment-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  background: #f1f7f4;
+  border-radius: 20px;
+  color: #37875f;
+  font-size: 11px;
+  font-weight: 600;
+}

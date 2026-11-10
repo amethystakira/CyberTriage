@@ -80,7 +80,18 @@ function App() {
 
       <main className="main-area">
         <header className="topbar">
-          <span>Workspace / {activePage}</span>
+        <div className="topbar-left">
+            <span>Workspace</span>
+            <span className="breadcrumb-divider">/</span>
+            <strong>{activePage}</strong>
+        </div>
+
+        <div className="topbar-right">
+            <div className="environment-badge">
+            <span className="status-dot"></span>
+            Development Environment
+            </div>
+        </div>
         </header>
 
         <section className="content">
