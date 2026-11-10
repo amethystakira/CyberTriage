@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Clock3,
   FileBarChart,
+  Activity,
 } from "lucide-react";
 
 import "./App.css";
@@ -183,10 +184,15 @@ function App() {
                 </div>
 
                 <div className="activity-empty">
-                  <p>No recent activity</p>
-                  <span>
-                    Activity will appear here as investigations progress.
-                  </span>
+                    <div className="activity-empty-icon">
+                        <Activity size={22} />
+                    </div>
+
+                    <p>No recent activity</p>
+
+                    <span>
+                        Activity will appear here as investigations progress.
+                    </span>
                 </div>
               </div>
             </>

@@ -468,3 +468,15 @@ button {
   color: #8993a4;
   font-size: 11px;
 }
+
+.activity-empty-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f0f4fa;
+  color: #6482aa;
+}
