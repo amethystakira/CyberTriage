@@ -21,6 +21,26 @@ const navigation = [
   { label: "Reports", icon: FileBarChart },
 ];
 
+
+function StatCard({ icon: Icon, label, value, color }) {
+  return (
+    <div className="stat-card">
+      <div className="stat-top">
+        <div className={`stat-icon ${color}`}>
+          <Icon size={20} />
+        </div>
+      </div>
+
+      <div className="stat-label">{label}</div>
+
+      <div className="stat-bottom">
+        <strong>{value}</strong>
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
   const [activePage, setActivePage] = useState("Overview");
 
@@ -95,12 +115,48 @@ function App() {
         </header>
 
         <section className="content">
-          <div className="eyebrow">INVESTIGATION CENTER</div>
-          <h1>{activePage}</h1>
-          <p>
-            Manage your digital forensic investigations
-            from one centralized workspace.
-          </p>
+        <div className="page-heading">
+            <div>
+            <div className="eyebrow">INVESTIGATION CENTER</div>
+            <h1>{activePage}</h1>
+            <p>
+                Manage your digital forensic investigations
+                from one centralized workspace.
+            </p>
+            </div>
+        </div>
+
+        {activePage === "Overview" && (
+            <section className="stats-grid">
+            <StatCard
+                icon={FolderSearch}
+                label="Investigations"
+                value="0"
+                color="blue"
+            />
+
+            <StatCard
+                icon={AlertTriangle}
+                label="Findings"
+                value="0"
+                color="orange"
+            />
+
+            <StatCard
+                icon={HardDrive}
+                label="Evidence Items"
+                value="0"
+                color="purple"
+            />
+
+            <StatCard
+                icon={LayoutDashboard}
+                label="Completed Investigations"
+                value="0"
+                color="green"
+            />
+            </section>
+        )}
         </section>
       </main>
     </div>
