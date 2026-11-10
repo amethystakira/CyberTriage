@@ -35,7 +35,15 @@ function App() {
           </div>
         </div>
 
-        <nav className="nav-section">
+        <div className="workspace">
+            <div className="workspace-avatar">IU</div>
+            <div>
+                <strong>Investigation Unit</strong>
+                <span>Local workspace</span>
+            </div>
+            </div>
+
+            <nav className="nav-section">
           <span className="nav-heading">WORKSPACE</span>
 
           {navigation.map((item) => (

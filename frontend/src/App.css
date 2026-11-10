@@ -150,3 +150,41 @@ button {
   font-size: 12px;
   margin-top: 8px;
 }
+
+/* Workspace information */
+
+.workspace {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: #f6f8fb;
+  border: 1px solid #edf0f5;
+  border-radius: 9px;
+  margin-bottom: 28px;
+}
+
+.workspace-avatar {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 9px;
+  background: #e1ebfa;
+  color: #2868bb;
+}
+
+.workspace strong {
+  display: block;
+  font-size: 12px;
+}
+
+.workspace span {
+  display: block;
+  color: #929bad;
+  font-size: 10px;
+  margin-top: 3px;
+}
