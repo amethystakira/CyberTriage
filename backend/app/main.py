@@ -1,3 +1,4 @@
+
 from datetime import datetime
 import csv
 import hashlib
@@ -13,6 +14,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+
 
 app = FastAPI(
     title="CyberTriage API",
@@ -32,16 +34,19 @@ DATABASE = Path(__file__).resolve().parent.parent / "cybertriage.db"
 EVIDENCE_DIR = Path(__file__).resolve().parents[2] / "evidence"
 MAX_EVIDENCE_BYTES = 25 * 1024 * 1024
 
+
 def get_db():
     connection = sqlite3.connect(DATABASE)
     connection.row_factory = sqlite3.Row
     return connection
+
 
 def record_event(db, event_type, description, case_id=None, occurred_at=None):
     db.execute(
         "INSERT INTO timeline_events (case_id, event_type, description, occurred_at) VALUES (?, ?, ?, ?)",
         (case_id, event_type, description, occurred_at or datetime.now().astimezone().isoformat(timespec="seconds")),
     )
+
 
 def initialize_db():
     with get_db() as db:
@@ -85,7 +90,7 @@ def initialize_db():
                 indicators_json TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(evidence_id) REFERENCES evidence(evidence_id)
-            ); 
+            );
             CREATE TABLE IF NOT EXISTS timeline_events (
                 event_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 case_id TEXT,
@@ -110,7 +115,7 @@ def initialize_db():
                     "Analyzing",
                     "High",
                 ),
-               (
+                (
                     "CASE-2026-002",
                     "Endpoint Security Review",
                     "A. Pal",
@@ -141,7 +146,6 @@ def initialize_db():
                 WHERE t.case_id = i.case_id AND t.event_type = 'Investigation created'
             )
         """).fetchall()
-
         for item in missing_events:
             try:
                 case_date = datetime.strptime(item["date"], "%d %b %Y").astimezone().isoformat(timespec="seconds")
@@ -161,6 +165,7 @@ def initialize_db():
                 continue
             db.execute("UPDATE timeline_events SET occurred_at = ? WHERE event_id = ?", (case_date, event["event_id"]))
 
+
 initialize_db()
 
 
@@ -169,8 +174,10 @@ class InvestigationCreate(BaseModel):
     investigator: str = "A. Pal"
     severity: str = "Unassigned"
 
+
 class InvestigationStatusUpdate(BaseModel):
     status: str
+
 
 @app.get("/")
 def home():
@@ -180,12 +187,14 @@ def home():
         "version": "0.2.0",
     }
 
+
 @app.get("/api/health")
 def health():
     return {
         "status": "healthy",
         "service": "CyberTriage API",
     }
+
 
 @app.get("/api/cases")
 def get_cases():
@@ -197,6 +206,7 @@ def get_cases():
         """).fetchall()
 
     return [dict(row) for row in rows]
+
 
 @app.post("/api/cases", status_code=201)
 def create_case(case: InvestigationCreate):
@@ -238,6 +248,7 @@ def create_case(case: InvestigationCreate):
 
     return dict(created)
 
+
 @app.patch("/api/cases/{case_id}")
 def update_case_status(case_id: str, update: InvestigationStatusUpdate):
     if update.status not in {"Pending", "Analyzing", "Completed"}:
@@ -254,6 +265,7 @@ def update_case_status(case_id: str, update: InvestigationStatusUpdate):
         """, (case_id,)).fetchone()
     return dict(updated)
 
+
 @app.get("/api/dashboard/counts")
 def dashboard_counts():
     with get_db() as db:
@@ -263,6 +275,7 @@ def dashboard_counts():
             "evidence": db.execute("SELECT COUNT(*) FROM evidence").fetchone()[0],
             "completed": db.execute("SELECT COUNT(*) FROM investigations WHERE lower(status) = 'completed'").fetchone()[0],
         }
+
 
 @app.get("/api/evidence")
 def get_evidence():
@@ -274,6 +287,7 @@ def get_evidence():
             ORDER BY e.evidence_id DESC
         """).fetchall()
     return [dict(row) for row in rows]
+
 
 @app.get("/api/evidence/{evidence_id}/download")
 def download_evidence(evidence_id: int):
@@ -292,6 +306,7 @@ def download_evidence(evidence_id: int):
         filename=row["original_name"],
         media_type="application/octet-stream",
     )
+
 
 @app.post("/api/evidence", status_code=201)
 async def upload_evidence(file: UploadFile = File(...), case_id: str = Form(default="")):
@@ -322,14 +337,17 @@ async def upload_evidence(file: UploadFile = File(...), case_id: str = Form(defa
     return {"evidence_id": evidence_id, "case_id": case_id, "original_name": original_name,
             "sha256": digest, "size_bytes": len(content), "uploaded_at": uploaded_at}
 
+
 class FindingCreate(BaseModel):
     title: str
     description: str
     severity: str = "Medium"
     case_id: Optional[str] = None
 
+
 class FindingStatusUpdate(BaseModel):
     status: str
+
 
 @app.get("/api/findings")
 def get_findings():
@@ -341,6 +359,7 @@ def get_findings():
             ORDER BY f.finding_id DESC
         """).fetchall()
     return [dict(row) for row in rows]
+
 
 @app.post("/api/findings", status_code=201)
 def create_finding(finding: FindingCreate):
@@ -362,6 +381,7 @@ def create_finding(finding: FindingCreate):
         row = db.execute("SELECT * FROM findings WHERE finding_id = ?", (cursor.lastrowid,)).fetchone()
     return dict(row)
 
+
 @app.patch("/api/findings/{finding_id}")
 def update_finding_status(finding_id: int, update: FindingStatusUpdate):
     if update.status not in {"Open", "Resolved"}:
@@ -375,6 +395,7 @@ def update_finding_status(finding_id: int, update: FindingStatusUpdate):
         updated = db.execute("SELECT * FROM findings WHERE finding_id = ?", (finding_id,)).fetchone()
     return dict(updated)
 
+
 @app.get("/api/analysis")
 def get_analysis_runs():
     with get_db() as db:
@@ -385,6 +406,7 @@ def get_analysis_runs():
             ORDER BY r.run_id DESC
         """).fetchall()
     return [{**dict(row), "indicators": json.loads(row["indicators_json"])} for row in rows]
+
 
 @app.post("/api/evidence/{evidence_id}/analyze")
 def analyze_evidence(evidence_id: int):
@@ -424,27 +446,29 @@ def analyze_evidence(evidence_id: int):
             record_event(db, "Finding created by rule scan", title, evidence["case_id"])
     return {"evidence_id": evidence_id, "summary": summary, "indicators": indicators, "created_at": created_at}
 
-    @app.get("/api/timeline")
-    def get_timeline(case_id: Optional[str] = None):
-        with get_db() as db:
-            query = """
-                SELECT t.event_id, t.case_id, t.event_type, t.description, t.occurred_at,
-                       i.name AS case_name
-                FROM timeline_events t LEFT JOIN investigations i ON i.case_id = t.case_id
-            """
-            if case_id:
-                rows = db.execute(query + " WHERE t.case_id = ? ORDER BY t.event_id DESC", (case_id,)).fetchall()
-            else:
-                rows = db.execute(query + " ORDER BY t.event_id DESC").fetchall()
-        return [dict(row) for row in rows]
 
-    @app.get("/api/reports")
-    def get_report_data():
-        return {
-            "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-            "investigations": get_cases(),
-            "evidence": get_evidence(),
-            "findings": get_findings(),
+@app.get("/api/timeline")
+def get_timeline(case_id: Optional[str] = None):
+    with get_db() as db:
+        query = """
+            SELECT t.event_id, t.case_id, t.event_type, t.description, t.occurred_at,
+                   i.name AS case_name
+            FROM timeline_events t LEFT JOIN investigations i ON i.case_id = t.case_id
+        """
+        if case_id:
+            rows = db.execute(query + " WHERE t.case_id = ? ORDER BY t.event_id DESC", (case_id,)).fetchall()
+        else:
+            rows = db.execute(query + " ORDER BY t.event_id DESC").fetchall()
+    return [dict(row) for row in rows]
+
+
+@app.get("/api/reports")
+def get_report_data():
+    return {
+        "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "investigations": get_cases(),
+        "evidence": get_evidence(),
+        "findings": get_findings(),
         "timeline": get_timeline(),
         "analysis_runs": get_analysis_runs(),
     }
