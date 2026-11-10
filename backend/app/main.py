@@ -386,3 +386,40 @@ def get_analysis_runs():
         """).fetchall()
     return [{**dict(row), "indicators": json.loads(row["indicators_json"])} for row in rows]
 
+@app.post("/api/evidence/{evidence_id}/analyze")
+def analyze_evidence(evidence_id: int):
+    ipv4_pattern = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
+    suspicious_terms = ("mimikatz", "powershell -enc", "encodedcommand", "credential dump", "rundll32")
+    with get_db() as db:
+        evidence = db.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,)).fetchone()
+        if not evidence:
+            raise HTTPException(status_code=404, detail="Evidence item not found.")
+        file_path = EVIDENCE_DIR / evidence["stored_name"]
+        if not file_path.is_file():
+            raise HTTPException(status_code=404, detail="Stored evidence file is missing.")
+        raw = file_path.read_bytes()
+        text = raw.decode("utf-8", errors="ignore")
+        indicators = []
+        for value in sorted(set(ipv4_pattern.findall(text))):
+            octets = [int(part) for part in value.split(".")]
+            if all(0 <= octet <= 255 for octet in octets):
+                indicators.append({"type": "IPv4 address", "value": value, "reason": "Address found in evidence text"})
+        lowered = text.lower()
+        for term in suspicious_terms:
+            if term in lowered:
+                indicators.append({"type": "Keyword", "value": term, "reason": "Matched a simple review keyword"})
+        summary = f"Found {len(indicators)} indicator(s) using simple text rules." if indicators else "No configured indicators found in readable text."
+        created_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        db.execute("""
+            INSERT INTO analysis_runs (evidence_id, summary, indicators_json, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (evidence_id, summary, json.dumps(indicators), created_at))
+        record_event(db, "Evidence analyzed", f"Analyzed evidence file: {evidence['original_name']}", evidence["case_id"])
+        for indicator in indicators:
+            title = f"{indicator['type']} found: {indicator['value']}"
+            db.execute("""
+                INSERT INTO findings (case_id, title, description, severity, status, created_at)
+                VALUES (?, ?, ?, 'Medium', 'Open', ?)
+            """, (evidence["case_id"], title, f"{indicator['reason']} in {evidence['original_name']}.", created_at))
+            record_event(db, "Finding created by rule scan", title, evidence["case_id"])
+    return {"evidence_id": evidence_id, "summary": summary, "indicators": indicators, "created_at": created_at}
