@@ -385,3 +385,11 @@ button {
   font-size: 25px;
   letter-spacing: -0.7px;
 }
+
+.stat-change {
+  font-size: 10px;
+  color: #8993a4;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}

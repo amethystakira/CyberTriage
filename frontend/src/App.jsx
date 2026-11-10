@@ -35,6 +35,9 @@ function StatCard({ icon: Icon, label, value, color }) {
 
       <div className="stat-bottom">
         <strong>{value}</strong>
+        <span className="stat-change">
+            Overview metric
+        </span>
       </div>
     </div>
   );
