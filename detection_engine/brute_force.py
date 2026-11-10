@@ -39,3 +39,6 @@ def detect_brute_force(events, threshold=5, window_minutes=10):
                 })
                 break
     return findings
+
+# Note: events missing timestamps are explicitly skipped above to prevent
+# fromisoformat crashes on None values – edge case caught during local testing.
