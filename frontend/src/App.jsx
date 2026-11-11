@@ -12,6 +12,7 @@ import {
   Activity,
   Bell,
   Search,
+  X,
 } from "lucide-react";
 
 import "./App.css";
@@ -173,6 +174,7 @@ function App() {
           <div className="topbar-right">
             <div className="header-search">
                 <Search size={16} />
+
                 <input
                     type="text"
                     placeholder="Search workspace..."
@@ -180,7 +182,18 @@ function App() {
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                 />
-                <kbd>⌘ K</kbd>
+
+                {searchQuery ? (
+                    <button
+                    className="clear-search-button"
+                    onClick={() => setSearchQuery("")}
+                    aria-label="Clear search"
+                    >
+                    <X size={14} />
+                    </button>
+                ) : (
+                    <kbd>⌘ K</kbd>
+                )}
             </div>
             <div className="current-date">
               {new Date().toLocaleDateString("en-IN", {

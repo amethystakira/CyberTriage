@@ -619,3 +619,19 @@ button {
   color: #8993a4;
   font-size: 11px;
 }
+
+
+.clear-search-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: #8993a4;
+  cursor: pointer;
+}
+
+.clear-search-button:hover {
+  color: #2868bb;
+}
