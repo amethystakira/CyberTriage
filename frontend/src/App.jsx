@@ -1,6 +1,5 @@
-
 import { useState, useEffect, useRef } from "react";
-const [searchQuery, setSearchQuery] = useState("");
+
 import {
   LayoutDashboard,
   FolderSearch,
@@ -62,6 +61,7 @@ function EmptyState({ icon: Icon, title, description }) {
 function App() {
   const [activePage, setActivePage] = useState("Overview");
   const [showNotifications, setShowNotifications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const notificationRef = useRef(null);
 
