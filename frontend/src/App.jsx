@@ -9,6 +9,7 @@ import {
   Clock3,
   FileBarChart,
   Activity,
+  Bell,
 } from "lucide-react";
 
 import "./App.css";
@@ -132,20 +133,25 @@ function App() {
             <strong>{activePage}</strong>
           </div>
 
-        <div className="topbar-right">
-            <div className="current-date">
-                {new Date().toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                })}
-            </div>
+          <div className="topbar-right">
+                <div className="current-date">
+                    {new Date().toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    })}
+                </div>
 
-            <div className="environment-badge">
-                <span className="status-dot"></span>
-                Development Environment
-            </div>
-        </div>
+                <button className="notification-button" aria-label="Notifications">
+                    <Bell size={18} />
+                    <span className="notification-dot"></span>
+                </button>
+
+                <div className="environment-badge">
+                    <span className="status-dot"></span>
+                    Development Environment
+                </div>
+          </div>
         </header>
 
         <section className="content">
