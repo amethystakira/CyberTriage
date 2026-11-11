@@ -1,3 +1,4 @@
+const [showNotifications, setShowNotifications] = useState(false);
 
 import { useState } from "react";
 import {
@@ -142,10 +143,21 @@ function App() {
                     })}
                 </div>
 
-                <button className="notification-button" aria-label="Notifications">
+                <button
+                    className="notification-button"
+                        aria-label="Notifications"
+                        onClick={() => setShowNotifications(!showNotifications)}
+                    >
                     <Bell size={18} />
                     <span className="notification-dot"></span>
                 </button>
+                {showNotifications && (
+                <div className="notification-panel">
+                    <h3>Notifications</h3>
+                    <p>You're all caught up!</p>
+                    <span>New investigation updates will appear here.</span>
+                </div>
+                )}
 
                 <div className="environment-badge">
                     <span className="status-dot"></span>
