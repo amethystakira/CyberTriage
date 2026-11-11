@@ -1,4 +1,12 @@
-"""Simple IP reputation heuristics; production deployments should use vetted feeds."""
+"""Simple IP reputation heuristics.
+
+Severity labels:
+  High   – IP is on the caller-supplied denylist
+  Review – Public IP not explicitly cleared (analyst should check)
+  Info   – Private/RFC-1918 address (usually internal infra)
+
+Production deployments should swap the denylist for a vetted threat-intel feed.
+"""
 import ipaddress
 
 def identify_suspicious_ips(events, denylist=None):
