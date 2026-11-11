@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
+const [searchQuery, setSearchQuery] = useState("");
 import {
   LayoutDashboard,
   FolderSearch,
@@ -119,7 +120,11 @@ function App() {
         <nav className="nav-section">
           <span className="nav-heading">WORKSPACE</span>
 
-          {navigation.map((item) => (
+          {navigation
+            .filter((item) =>
+                item.label.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+            .map((item) => (
             <button
               key={item.label}
               className={`nav-item ${
@@ -131,6 +136,11 @@ function App() {
               <span>{item.label}</span>
             </button>
           ))}
+          {navigation.filter((item) =>
+            item.label.toLowerCase().includes(searchQuery.toLowerCase())
+            ).length === 0 && (
+            <p className="no-search-results">No sections found</p>
+            )}
         </nav>
 
         <div className="sidebar-bottom">
@@ -165,8 +175,10 @@ function App() {
                 <Search size={16} />
                 <input
                     type="text"
-                    placeholder="Search investigations..."
-                    aria-label="Search investigations"
+                    placeholder="Search workspace..."
+                    aria-label="Search workspace"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
                 />
                 <kbd>⌘ K</kbd>
             </div>
