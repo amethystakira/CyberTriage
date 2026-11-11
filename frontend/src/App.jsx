@@ -72,21 +72,29 @@ function App() {
       : "Good evening";
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target)
-      ) {
-        setShowNotifications(false);
-      }
+  function handleClickOutside(event) {
+    if (
+      notificationRef.current &&
+      !notificationRef.current.contains(event.target)
+    ) {
+      setShowNotifications(false);
     }
+  }
 
-    document.addEventListener("mousedown", handleClickOutside);
+  function handleEscapeKey(event) {
+    if (event.key === "Escape") {
+      setShowNotifications(false);
+    }
+  }
 
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+  document.addEventListener("mousedown", handleClickOutside);
+  document.addEventListener("keydown", handleEscapeKey);
+
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
+    document.removeEventListener("keydown", handleEscapeKey);
+  };
+}, []); 
 
   return (
     <div className="app-shell">
