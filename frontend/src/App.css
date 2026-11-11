@@ -575,3 +575,41 @@ button {
 .notification-panel {
   right: 0;
 }
+
+
+.header-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 230px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #e8ebf0;
+  border-radius: 7px;
+  color: #8993a4;
+  background: #fff;
+}
+
+.header-search input {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 11px;
+  color: #202b3c;
+}
+
+.header-search input::placeholder {
+  color: #a0a8b5;
+}
+
+.header-search kbd {
+  white-space: nowrap;
+  font-size: 10px;
+  color: #8993a4;
+  background: #f3f5f8;
+  border: 1px solid #e8ebf0;
+  border-radius: 4px;
+  padding: 2px 4px;
+}

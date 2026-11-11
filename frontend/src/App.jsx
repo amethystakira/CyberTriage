@@ -10,6 +10,7 @@ import {
   FileBarChart,
   Activity,
   Bell,
+  Search,
 } from "lucide-react";
 
 import "./App.css";
@@ -160,6 +161,15 @@ function App() {
           </div>
 
           <div className="topbar-right">
+            <div className="header-search">
+                <Search size={16} />
+                <input
+                    type="text"
+                    placeholder="Search investigations..."
+                    aria-label="Search investigations"
+                />
+                <kbd>⌘ K</kbd>
+            </div>
             <div className="current-date">
               {new Date().toLocaleDateString("en-IN", {
                 day: "2-digit",
