@@ -85,6 +85,12 @@ function App() {
     Reports: "Generate and manage investigation reports.",
     };
     
+    const activeNavigation = navigation.find(
+        (item) => item.label === activePage
+    );
+
+    const ActiveIcon = activeNavigation?.icon || LayoutDashboard;
+
   // Handle notification outside clicks and Escape key
   useEffect(() => {
     function handleClickOutside(event) {
@@ -272,14 +278,22 @@ function App() {
 
         <section className="content">
           <div className="page-heading">
-            <div>
+            <div className="page-title-group">
+                <div className="page-title-icon">
+                <ActiveIcon size={22} />
+                </div>
+
+                <div>
                 <div className="eyebrow">INVESTIGATION CENTER</div>
+
                 <h1>
-                {activePage === "Overview"
+                    {activePage === "Overview"
                     ? `${greeting}, Investigator`
                     : activePage}
                 </h1>
+
                 <p>{pageDescriptions[activePage]}</p>
+                </div>
             </div>
 
             {activePage === "Overview" && (
@@ -288,7 +302,7 @@ function App() {
                 New Investigation
                 </button>
             )}
-          </div>
+            </div>
 
           {activePage === "Overview" && (
             <>
