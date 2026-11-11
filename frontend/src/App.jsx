@@ -75,6 +75,16 @@ function App() {
       ? "Good afternoon"
       : "Good evening";
 
+  const pageDescriptions = {
+    Overview: "Here's an overview of your digital forensic investigations.",
+    Investigations: "Create and manage your digital forensic investigations.",
+    Evidence: "Organize and examine collected digital evidence.",
+    Analysis: "Analyze evidence to identify suspicious patterns.",
+    Findings: "Review important findings from your investigations.",
+    Timeline: "Track important events across your investigations.",
+    Reports: "Generate and manage investigation reports.",
+    };
+    
   // Handle notification outside clicks and Escape key
   useEffect(() => {
     function handleClickOutside(event) {
@@ -263,19 +273,20 @@ function App() {
         <section className="content">
           <div className="page-heading">
             <div>
-              <div className="eyebrow">INVESTIGATION CENTER</div>
-              <h1>{greeting}, Investigator</h1>
-              <p>
-                Here's an overview of your digital forensic
-                investigations.
-              </p>
+                <div className="eyebrow">INVESTIGATION CENTER</div>
+                <h1>
+                {activePage === "Overview"
+                    ? `${greeting}, Investigator`
+                    : activePage}
+                </h1>
+                <p>{pageDescriptions[activePage]}</p>
             </div>
 
             {activePage === "Overview" && (
-              <button className="primary-button">
+                <button className="primary-button">
                 <span>+</span>
                 New Investigation
-              </button>
+                </button>
             )}
           </div>
 
