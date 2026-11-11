@@ -1,6 +1,5 @@
-const [showNotifications, setShowNotifications] = useState(false);
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   FolderSearch,
@@ -38,9 +37,7 @@ function StatCard({ icon: Icon, label, value, color }) {
 
       <div className="stat-bottom">
         <strong>{value}</strong>
-        <span className="stat-change">
-          Overview metric
-        </span>
+        <span className="stat-change">Overview metric</span>
       </div>
     </div>
   );
@@ -61,6 +58,9 @@ function EmptyState({ icon: Icon, title, description }) {
 
 function App() {
   const [activePage, setActivePage] = useState("Overview");
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const notificationRef = useRef(null);
 
   const currentHour = new Date().getHours();
 
@@ -70,6 +70,23 @@ function App() {
       : currentHour < 18
       ? "Good afternoon"
       : "Good evening";
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
+        setShowNotifications(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="app-shell">
@@ -135,34 +152,45 @@ function App() {
           </div>
 
           <div className="topbar-right">
-                <div className="current-date">
-                    {new Date().toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                    })}
-                </div>
+            <div className="current-date">
+              {new Date().toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </div>
 
-                <button
-                    className="notification-button"
-                        aria-label="Notifications"
-                        onClick={() => setShowNotifications(!showNotifications)}
-                    >
-                    <Bell size={18} />
-                    <span className="notification-dot"></span>
-                </button>
-                {showNotifications && (
+            <div
+              className="notification-wrapper"
+              ref={notificationRef}
+            >
+              <button
+                className="notification-button"
+                aria-label="Notifications"
+                aria-expanded={showNotifications}
+                onClick={() =>
+                  setShowNotifications(!showNotifications)
+                }
+              >
+                <Bell size={18} />
+                <span className="notification-dot"></span>
+              </button>
+
+              {showNotifications && (
                 <div className="notification-panel">
-                    <h3>Notifications</h3>
-                    <p>You're all caught up!</p>
-                    <span>New investigation updates will appear here.</span>
+                  <h3>Notifications</h3>
+                  <p>You're all caught up!</p>
+                  <span>
+                    New investigation updates will appear here.
+                  </span>
                 </div>
-                )}
+              )}
+            </div>
 
-                <div className="environment-badge">
-                    <span className="status-dot"></span>
-                    Development Environment
-                </div>
+            <div className="environment-badge">
+              <span className="status-dot"></span>
+              Development Environment
+            </div>
           </div>
         </header>
 
@@ -231,10 +259,10 @@ function App() {
                   </button>
                 </div>
 
-              <EmptyState
-                icon={Activity}
-                title="No recent activity"
-                description="Activity will appear here as investigations progress."
+                <EmptyState
+                  icon={Activity}
+                  title="No recent activity"
+                  description="Activity will appear here as investigations progress."
                 />
               </div>
             </>

@@ -566,3 +566,12 @@ button {
   font-size: 11px;
   color: #8993a4;
 }
+
+
+.notification-wrapper {
+  position: relative;
+}
+
+.notification-panel {
+  right: 0;
+}
