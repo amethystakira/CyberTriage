@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 
 import {
@@ -74,30 +75,50 @@ function App() {
       ? "Good afternoon"
       : "Good evening";
 
+  // Handle notification outside clicks and Escape key
   useEffect(() => {
-  function handleClickOutside(event) {
-    if (
-      notificationRef.current &&
-      !notificationRef.current.contains(event.target)
-    ) {
-      setShowNotifications(false);
+    function handleClickOutside(event) {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
+        setShowNotifications(false);
+      }
     }
-  }
 
-  function handleEscapeKey(event) {
-    if (event.key === "Escape") {
-      setShowNotifications(false);
+    function handleEscapeKey(event) {
+      if (event.key === "Escape") {
+        setShowNotifications(false);
+      }
     }
-  }
 
-  document.addEventListener("mousedown", handleClickOutside);
-  document.addEventListener("keydown", handleEscapeKey);
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscapeKey);
 
-  return () => {
-    document.removeEventListener("mousedown", handleClickOutside);
-    document.removeEventListener("keydown", handleEscapeKey);
-  };
-}, []); 
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, []);
+
+  // Handle Cmd + K / Ctrl + K search shortcut
+  useEffect(() => {
+    function handleSearchShortcut(event) {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === "k"
+      ) {
+        event.preventDefault();
+        document.querySelector(".header-search input")?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleSearchShortcut);
+
+    return () => {
+      document.removeEventListener("keydown", handleSearchShortcut);
+    };
+  }, []);
 
   return (
     <div className="app-shell">
@@ -123,25 +144,26 @@ function App() {
 
           {navigation
             .filter((item) =>
-                item.label.toLowerCase().includes(searchQuery.toLowerCase())
+              item.label.toLowerCase().includes(searchQuery.toLowerCase())
             )
             .map((item) => (
-            <button
-              key={item.label}
-              className={`nav-item ${
-                activePage === item.label ? "active" : ""
-              }`}
-              onClick={() => setActivePage(item.label)}
-            >
-              <item.icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          ))}
+              <button
+                key={item.label}
+                className={`nav-item ${
+                  activePage === item.label ? "active" : ""
+                }`}
+                onClick={() => setActivePage(item.label)}
+              >
+                <item.icon size={18} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+
           {navigation.filter((item) =>
             item.label.toLowerCase().includes(searchQuery.toLowerCase())
-            ).length === 0 && (
+          ).length === 0 && (
             <p className="no-search-results">No sections found</p>
-            )}
+          )}
         </nav>
 
         <div className="sidebar-bottom">
@@ -173,28 +195,29 @@ function App() {
 
           <div className="topbar-right">
             <div className="header-search">
-                <Search size={16} />
+              <Search size={16} />
 
-                <input
-                    type="text"
-                    placeholder="Search workspace..."
-                    aria-label="Search workspace"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                />
+              <input
+                type="text"
+                placeholder="Search workspace..."
+                aria-label="Search workspace"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
 
-                {searchQuery ? (
-                    <button
-                    className="clear-search-button"
-                    onClick={() => setSearchQuery("")}
-                    aria-label="Clear search"
-                    >
-                    <X size={14} />
-                    </button>
-                ) : (
-                    <kbd>⌘ K</kbd>
-                )}
+              {searchQuery ? (
+                <button
+                  className="clear-search-button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              ) : (
+                <kbd>⌘ K</kbd>
+              )}
             </div>
+
             <div className="current-date">
               {new Date().toLocaleDateString("en-IN", {
                 day: "2-digit",
