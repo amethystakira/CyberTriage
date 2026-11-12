@@ -292,7 +292,17 @@ function App() {
 
               {showNotifications && (
                 <div className="notification-panel">
+                <div className="notification-panel-header">
                 <h3>Notifications</h3>
+                <button
+                    type="button"
+                    className="close-notifications"
+                    onClick={() => setShowNotifications(false)}
+                    aria-label="Close notifications"
+                >
+                    <X size={15} />
+                </button>
+                </div>
                 <button
                     type="button"
                     className="mark-read-button"
