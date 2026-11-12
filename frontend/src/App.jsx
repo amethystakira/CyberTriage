@@ -275,10 +275,11 @@ function App() {
               <button
                 type="button"
                 className="notification-button"
+                title="View notifications"
                 aria-label="Notifications"
                 aria-expanded={showNotifications}
                 onClick={() =>
-                  setShowNotifications((previous) => !previous)
+                    setShowNotifications((previous) => !previous)
                 }
               >
                 <Bell size={18} />
