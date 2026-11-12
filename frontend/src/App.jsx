@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 import {
   LayoutDashboard,
@@ -120,6 +120,45 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [unreadCount, setUnreadCount] = useState(2);
+
+  const loadWorkspace = useCallback(async () => {
+  const response = await fetch("/api/reports");
+
+  if (!response.ok) {
+    throw new Error("Could not load workspace data from the API.");
+  }
+
+  const data = await response.json();
+
+  setWorkspace({ ...emptyWorkspace, ...data });
+}, []);
+
+useEffect(() => {
+  let isCurrent = true;
+
+  fetch("/api/reports")
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Could not load workspace data from the API.");
+      }
+
+      return response.json();
+    })
+    .then((data) => {
+      if (isCurrent) {
+        setWorkspace({ ...emptyWorkspace, ...data });
+      }
+    })
+    .catch((error) => {
+      if (isCurrent) {
+        console.error(error.message);
+      }
+    });
+
+  return () => {
+    isCurrent = false;
+  };
+}, []);
 
   const notificationRef = useRef(null);
   const refreshTimerRef = useRef(null);
