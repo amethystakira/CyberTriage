@@ -63,6 +63,7 @@ function App() {
   const [activePage, setActivePage] = useState("Overview");
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const notificationRef = useRef(null);
 
@@ -277,6 +278,12 @@ function App() {
         </header>
 
         <section className="content">
+            {isLoading && (
+            <div className="loading-indicator">
+                <div className="loading-spinner"></div>
+                <span>Loading workspace...</span>
+            </div>
+)}
           <div className="page-heading">
             <div className="page-title-group">
                 <div className="page-title-icon">
