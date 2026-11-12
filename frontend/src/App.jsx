@@ -76,6 +76,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [unreadCount, setUnreadCount] = useState(2);
 
   const notificationRef = useRef(null);
   const refreshTimerRef = useRef(null);
@@ -278,12 +279,15 @@ function App() {
                 title="View notifications"
                 aria-label="Notifications"
                 aria-expanded={showNotifications}
-                onClick={() =>
-                    setShowNotifications((previous) => !previous)
-                }
+                onClick={() => {
+                    setShowNotifications((previous) => !previous);
+                    setUnreadCount(0);
+                }}
               >
                 <Bell size={18} />
-                <span className="notification-count">2</span>
+                {unreadCount > 0 && (
+                    <span className="notification-count">{unreadCount}</span>
+                )}
               </button>
 
               {showNotifications && (
