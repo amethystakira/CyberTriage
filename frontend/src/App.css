@@ -942,3 +942,62 @@ button {
   text-transform: uppercase;
   color: var(--text-muted, #788394);
 }
+
+
+/* Investigation creation dialog */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #17233766;
+}
+
+.case-dialog {
+  width: min(100%, 460px);
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e9edf3;
+  border-radius: 12px;
+  box-shadow: 0 18px 60px #17233733;
+}
+
+.case-form-label {
+  display: block;
+  margin: 24px 0 8px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.case-form-input {
+  width: 100%;
+  border: 1px solid #dce2eb;
+  border-radius: 7px;
+  padding: 11px 12px;
+  color: #344054;
+  font-size: 13px;
+}
+
+.case-form-input:focus {
+  outline: 2px solid #3679c855;
+  border-color: #3679c8;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 24px;
+}
+
+.dialog-actions .secondary-button {
+  margin-top: 0;
+}
+
+.dialog-actions .primary-button:disabled {
+  cursor: wait;
+  opacity: .7;
+}
