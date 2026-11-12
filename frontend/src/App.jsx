@@ -722,7 +722,10 @@ const filteredCases = cases.filter((item) => {
               required
               maxLength={200}
               value={caseName}
-              onChange={(event) => setCaseName(event.target.value)}
+              onChange={(event) => {
+                setCaseName(event.target.value);
+                if (caseError) setCaseError("");
+                }}
               placeholder="e.g. Suspicious login activity"
             />
 
