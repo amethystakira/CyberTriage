@@ -689,8 +689,8 @@ const filteredCases = cases.filter((item) => {
         <div
           className="modal-backdrop"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setCaseModalOpen(false);
+            if (event.target === event.currentTarget && !isSaving) {
+                setCaseModalOpen(false);
             }
           }}
         >
@@ -705,6 +705,7 @@ const filteredCases = cases.filter((item) => {
                 type="button"
                 className="icon-button"
                 aria-label="Close"
+                disabled={isSaving}
                 onClick={() => setCaseModalOpen(false)}
               >
                 <X size={19} />
@@ -735,14 +736,14 @@ const filteredCases = cases.filter((item) => {
               </p>
             )}
 
-            <div className="dialog-actions">
-              <button
+            <button
                 type="button"
                 className="secondary-button"
+                disabled={isSaving}
                 onClick={() => setCaseModalOpen(false)}
-              >
+                >
                 Cancel
-              </button>
+            </button>
 
               <button
                 type="submit"
