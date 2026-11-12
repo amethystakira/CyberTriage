@@ -117,7 +117,8 @@ function App() {
   const [settings, setSettings] = useState(readSettings);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [caseError, setCaseError] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [unreadCount, setUnreadCount] = useState(2);
 
@@ -151,7 +152,12 @@ useEffect(() => {
     })
     .catch((error) => {
       if (isCurrent) {
-        console.error(error.message);
+        setCaseError(error.message);
+      }
+    })
+    .finally(() => {
+      if (isCurrent) {
+        setIsLoading(false);
       }
     });
 
