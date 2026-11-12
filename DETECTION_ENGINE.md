@@ -4,6 +4,17 @@
 This package owns authentication-log parsing, brute-force detection, suspicious-IP heuristics,
 risk scoring, forensic timelines, and JSON report generation.
 
+## Module responsibilities
+
+| Module | Responsibility |
+|--------|---------------|
+| `log_parser.py` | Authentication log parsing – converts raw auth lines to normalized dicts |
+| `brute_force.py` | Repeated failed-login detection using a rolling time window |
+| `suspicious_ip.py` | Suspicious IP analysis with private/denylist severity heuristics |
+| `threat_scoring.py` | Risk scoring (0–100) with weighted per-finding contributions |
+| `timeline.py` | Chronological forensic event timeline builder |
+| `report_generator.py` | JSON forensic report tying all modules together |
+
 ## Run a quick analysis
 From this folder:
 ```bash
@@ -24,3 +35,7 @@ PY
 ## Git ownership
 Use branch `feature/detection-engine`. Own `detection_engine/`, detection-specific tests,
 and the sample authentication dataset. Coordinate API integration with the backend owner.
+
+## Important constraints
+- Do **not** modify `frontend/` or `backend/app/` – those are owned by other members.
+- Coordinate any shared API contracts with the backend developer before merging.
