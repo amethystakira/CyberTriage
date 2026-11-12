@@ -18,6 +18,20 @@ import {
 
 import "./App.css";
 
+const emptyWorkspace = {
+  investigations: [],
+  evidence: [],
+  findings: [],
+  timeline: [],
+  analysis_runs: [],
+};
+
+const defaultSettings = {
+  workspaceName: "Investigation Unit",
+  investigatorName: "A. Pal",
+  defaultSeverity: "Unassigned",
+};
+
 const navigation = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Investigations", icon: FolderSearch },
@@ -72,6 +86,8 @@ function EmptyState({ icon: Icon, title, description }) {
 
 function App() {
   const [activePage, setActivePage] = useState("Overview");
+  const [workspace, setWorkspace] = useState(emptyWorkspace);
+  const [settings, setSettings] = useState(defaultSettings);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -182,7 +198,7 @@ function App() {
         <div className="workspace">
           <div className="workspace-avatar">IU</div>
           <div>
-            <strong>Investigation Unit</strong>
+            <strong>{settings.workspaceName}</strong>
             <span>Local workspace</span>
           </div>
         </div>
@@ -220,7 +236,7 @@ function App() {
           <div className="profile">
             <div className="profile-avatar">AP</div>
             <div>
-              <strong>A. Pal</strong>
+              <strong>{settings.investigatorName}</strong>
               <span>Local investigator</span>
             </div>
           </div>
