@@ -115,6 +115,7 @@ function App() {
   const [activePage, setActivePage] = useState("Overview");
   const [workspace, setWorkspace] = useState(emptyWorkspace);
   const [settings, setSettings] = useState(readSettings);
+  const [apiStatus, setApiStatus] = useState("Checking");
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -137,32 +138,34 @@ function App() {
 useEffect(() => {
   let isCurrent = true;
 
-  fetch("/api/reports")
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Could not load workspace data from the API.");
-      }
+  const checkApi = () => {
+    fetch("/api/health")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("API unavailable");
+        }
 
-      return response.json();
-    })
-    .then((data) => {
-      if (isCurrent) {
-        setWorkspace({ ...emptyWorkspace, ...data });
-      }
-    })
-    .catch((error) => {
-      if (isCurrent) {
-        setCaseError(error.message);
-      }
-    })
-    .finally(() => {
-      if (isCurrent) {
-        setIsLoading(false);
-      }
-    });
+        return response.json();
+      })
+      .then(() => {
+        if (isCurrent) {
+          setApiStatus("Online");
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setApiStatus("Offline");
+        }
+      });
+  };
+
+  checkApi();
+
+  const timer = window.setInterval(checkApi, 30000);
 
   return () => {
     isCurrent = false;
+    window.clearInterval(timer);
   };
 }, []);
 
@@ -296,14 +299,13 @@ useEffect(() => {
           )}
         </nav>
 
-        <div className="sidebar-bottom">
-          <div className="system-status">
-            <span className="status-dot"></span>
+        <div className="system-status">
+            <span className={`status-dot ${apiStatus.toLowerCase()}`} />
             <div>
-              <strong>API Online</strong>
-              <span>Local backend</span>
+                <strong>API {apiStatus.toLowerCase()}</strong>
+                <span>Local backend</span>
             </div>
-          </div>
+        </div>
 
           <div className="profile">
             <div className="profile-avatar">AP</div>
