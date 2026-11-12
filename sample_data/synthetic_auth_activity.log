@@ -2,3 +2,11 @@
 # The IP address is from the documentation-only TEST-NET-3 range.
 2026-11-04T09:12:04Z event=failed_login user=demo-user source_ip=203.0.113.42
 2026-11-04T09:16:10Z event=process_observed user=demo-user process="powershell -enc [redacted-demo-payload]"
+2026-11-05T08:01:33Z event=failed_login user=admin source_ip=198.51.100.7
+2026-11-05T08:01:50Z event=failed_login user=admin source_ip=198.51.100.7
+2026-11-05T08:02:11Z event=failed_login user=admin source_ip=198.51.100.7
+2026-11-05T08:02:30Z event=failed_login user=admin source_ip=198.51.100.7
+2026-11-05T08:02:55Z event=failed_login user=admin source_ip=198.51.100.7
+2026-11-05T08:03:14Z event=failed_login user=admin source_ip=198.51.100.7
+2026-11-05T08:04:01Z event=successful_login user=sysop source_ip=10.0.0.5
+2026-11-05T08:10:22Z event=failed_login user=root source_ip=203.0.113.99
