@@ -115,6 +115,8 @@ function App() {
   const [activePage, setActivePage] = useState("Overview");
   const [workspace, setWorkspace] = useState(emptyWorkspace);
   const [settings, setSettings] = useState(readSettings);
+  const [statusFilter, setStatusFilter] = useState("All cases");
+  const [caseSearch, setCaseSearch] = useState("");
   const [apiStatus, setApiStatus] = useState("Checking");
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -189,6 +191,22 @@ useEffect(() => {
 
   const ActiveIcon = activeNavigation?.icon || LayoutDashboard;
 
+  const cases = workspace.investigations.map((item) => ({
+  ...item,
+  id: item.case_id,
+}));
+
+const filteredCases = cases.filter((item) => {
+  const matchesSearch = `${item.id} ${item.name} ${item.status}`
+    .toLowerCase()
+    .includes(caseSearch.toLowerCase());
+
+  const matchesStatus =
+    statusFilter === "All cases" || item.status === statusFilter;
+
+  return matchesSearch && matchesStatus;
+});
+
   const filteredNavigation = navigation.filter((item) =>
     item.label.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -261,7 +279,7 @@ useEffect(() => {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+    <aside className="sidebar">
         <div className="brand">
           <div className="brand-icon">CT</div>
           <div>
@@ -315,7 +333,7 @@ useEffect(() => {
             </div>
           </div>
         </div>
-      </aside>
+    </aside>
 
       <main className="main-area">
         <header className="topbar">
@@ -504,7 +522,7 @@ useEffect(() => {
             )}
           </div>
 
-          {activePage === "Overview" && (
+          {activePage === "Overview" ? (
             <>
               <section className="stats-grid">
                 <StatCard
@@ -561,6 +579,69 @@ useEffect(() => {
               </div>
             </>
           )}
+          ) : activePage === "Investigations" ? (
+  <section className="activity-section">
+    <div className="section-heading">
+      <div>
+        <h2>Investigations</h2>
+        <p>Manage and review your investigation cases.</p>
+      </div>
+    </div>
+
+    <div className="investigation-toolbar">
+      <input
+        type="search"
+        placeholder="Search investigations..."
+        value={caseSearch}
+        onChange={(event) => setCaseSearch(event.target.value)}
+      />
+
+      <select
+        value={statusFilter}
+        onChange={(event) => setStatusFilter(event.target.value)}
+      >
+        <option>All cases</option>
+        <option>Pending</option>
+        <option>Analyzing</option>
+        <option>Completed</option>
+      </select>
+    </div>
+
+    {isLoading ? (
+      <p>Loading investigations...</p>
+    ) : filteredCases.length === 0 ? (
+      <p>No matching investigations found.</p>
+    ) : (
+      <div className="investigation-table-wrapper">
+        <table className="investigation-table">
+          <thead>
+            <tr>
+              <th>Case ID</th>
+              <th>Investigation</th>
+              <th>Investigator</th>
+              <th>Date Created</th>
+              <th>Severity</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {filteredCases.map((item) => (
+              <tr key={item.id}>
+                <td>{item.id}</td>
+                <td>{item.name}</td>
+                <td>{item.investigator}</td>
+                <td>{item.date}</td>
+                <td>{item.severity}</td>
+                <td>{item.status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </section>
+) : null}
         </section>
       </main>
     </div>
