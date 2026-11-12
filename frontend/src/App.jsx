@@ -510,28 +510,28 @@ useEffect(() => {
                 <StatCard
                   icon={FolderSearch}
                   label="Investigations"
-                  value="0"
+                  value={workspace.investigations.length}
                   color="blue"
                 />
 
                 <StatCard
                   icon={AlertTriangle}
                   label="Findings"
-                  value="0"
+                  value={workspace.findings.length}
                   color="orange"
                 />
 
                 <StatCard
                   icon={HardDrive}
                   label="Evidence Items"
-                  value="0"
+                  value={workspace.evidence.length}
                   color="purple"
                 />
 
                 <StatCard
                   icon={LayoutDashboard}
                   label="Completed Investigations"
-                  value="0"
+                  value={workspace.investigations.filter((item) => item.status === "Completed").length}
                   color="green"
                 />
               </section>
