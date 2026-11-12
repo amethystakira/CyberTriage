@@ -283,7 +283,7 @@ function App() {
                 }
               >
                 <Bell size={18} />
-                <span className="notification-dot"></span>
+                <span className="notification-count">2</span>
               </button>
 
               {showNotifications && (
