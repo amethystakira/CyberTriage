@@ -248,10 +248,6 @@ const filteredCases = cases.filter((item) => {
         event.key.toLowerCase() === "k"
       ) {
         event.preventDefault();
-        if (!caseName.trim()) {
-            setCaseError("Please enter an investigation name.");
-            return;
-        }
         document.querySelector(".header-search input")?.focus();
       }
     }
@@ -311,11 +307,11 @@ const filteredCases = cases.filter((item) => {
     }
   }
 
-  function openCaseForm() {
-    setCaseError("");
+    function openCaseForm() {
     setCaseName("");
+    setCaseError("");
     setCaseModalOpen(true);
-  }
+    }
 
   return (
     <div className="app-shell">
