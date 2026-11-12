@@ -679,3 +679,12 @@ button {
 .nav-item:hover:not(.active) {
   background: #f5f7fa;
 }
+
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 22px rgba(30, 50, 80, 0.08);
+}
