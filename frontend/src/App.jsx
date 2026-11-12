@@ -75,6 +75,7 @@ function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
   const notificationRef = useRef(null);
   const refreshTimerRef = useRef(null);
@@ -87,6 +88,8 @@ function App() {
       : currentHour < 18
       ? "Good afternoon"
       : "Good evening";
+
+    
 
   const activeNavigation = navigation.find(
     (item) => item.label === activePage
@@ -152,16 +155,17 @@ function App() {
     };
   }, []);
 
-  function handleRefresh() {
-    if (isLoading) return;
+    function handleRefresh() {
+        if (isLoading) return;
 
-    setIsLoading(true);
+        setIsLoading(true);
 
-    refreshTimerRef.current = setTimeout(() => {
-      setIsLoading(false);
-      refreshTimerRef.current = null;
-    }, 1200);
-  }
+        refreshTimerRef.current = setTimeout(() => {
+            setIsLoading(false);
+            setLastRefreshed(new Date());
+            refreshTimerRef.current = null;
+        }, 1200);
+    }
 
   return (
     <div className="app-shell">
@@ -349,6 +353,13 @@ function App() {
                   />
                   Refresh
                 </button>
+
+            <span className="last-refreshed">
+                Updated at {lastRefreshed.toLocaleTimeString("en-IN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                })}
+            </span>
 
                 <button
                   type="button"

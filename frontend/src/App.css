@@ -748,3 +748,9 @@ button {
 .refresh-spinning {
   animation: dashboard-spin 0.8s linear infinite;
 }
+
+.last-refreshed {
+  font-size: 10px;
+  color: #8993a4;
+  white-space: nowrap;
+}
