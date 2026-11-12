@@ -97,6 +97,20 @@ function EmptyState({ icon: Icon, title, description }) {
   );
 }
 
+async function apiRequest(url, options = {}) {
+  const response = await fetch(url, options);
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      data.detail || data.message || "Something went wrong."
+    );
+  }
+
+  return data;
+}
+
 function App() {
   const [activePage, setActivePage] = useState("Overview");
   const [workspace, setWorkspace] = useState(emptyWorkspace);
@@ -505,5 +519,6 @@ function App() {
     </div>
   );
 }
+
 
 export default App;
