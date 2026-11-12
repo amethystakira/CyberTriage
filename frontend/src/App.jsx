@@ -32,6 +32,19 @@ const defaultSettings = {
   defaultSeverity: "Unassigned",
 };
 
+function readSettings() {
+  try {
+    return {
+      ...defaultSettings,
+      ...JSON.parse(
+        localStorage.getItem("cybertriage-settings") || "{}"
+      ),
+    };
+  } catch {
+    return defaultSettings;
+  }
+}
+
 const navigation = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Investigations", icon: FolderSearch },
@@ -87,7 +100,7 @@ function EmptyState({ icon: Icon, title, description }) {
 function App() {
   const [activePage, setActivePage] = useState("Overview");
   const [workspace, setWorkspace] = useState(emptyWorkspace);
-  const [settings, setSettings] = useState(defaultSettings);
+  const [settings, setSettings] = useState(readSettings);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
