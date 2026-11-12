@@ -715,3 +715,36 @@ button {
     transform: rotate(360deg);
   }
 }
+
+
+.heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.refresh-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 13px;
+  border: 1px solid #e5e9ef;
+  border-radius: 7px;
+  background: #fff;
+  color: #536176;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background: #f5f7fa;
+}
+
+.refresh-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-spinning {
+  animation: dashboard-spin 0.8s linear infinite;
+}

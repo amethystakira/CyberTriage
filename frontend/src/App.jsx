@@ -13,6 +13,7 @@ import {
   Bell,
   Search,
   X,
+  RefreshCw,
 } from "lucide-react";
 
 import "./App.css";
@@ -26,6 +27,16 @@ const navigation = [
   { label: "Timeline", icon: Clock3 },
   { label: "Reports", icon: FileBarChart },
 ];
+
+const pageDescriptions = {
+  Overview: "Here's an overview of your digital forensic investigations.",
+  Investigations: "Create and manage your digital forensic investigations.",
+  Evidence: "Organize and examine collected digital evidence.",
+  Analysis: "Analyze evidence to identify suspicious patterns.",
+  Findings: "Review important findings from your investigations.",
+  Timeline: "Track important events across your investigations.",
+  Reports: "Generate and manage investigation reports.",
+};
 
 function StatCard({ icon: Icon, label, value, color }) {
   return (
@@ -66,6 +77,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
 
   const notificationRef = useRef(null);
+  const refreshTimerRef = useRef(null);
 
   const currentHour = new Date().getHours();
 
@@ -76,23 +88,17 @@ function App() {
       ? "Good afternoon"
       : "Good evening";
 
-  const pageDescriptions = {
-    Overview: "Here's an overview of your digital forensic investigations.",
-    Investigations: "Create and manage your digital forensic investigations.",
-    Evidence: "Organize and examine collected digital evidence.",
-    Analysis: "Analyze evidence to identify suspicious patterns.",
-    Findings: "Review important findings from your investigations.",
-    Timeline: "Track important events across your investigations.",
-    Reports: "Generate and manage investigation reports.",
-    };
-    
-    const activeNavigation = navigation.find(
-        (item) => item.label === activePage
-    );
+  const activeNavigation = navigation.find(
+    (item) => item.label === activePage
+  );
 
-    const ActiveIcon = activeNavigation?.icon || LayoutDashboard;
+  const ActiveIcon = activeNavigation?.icon || LayoutDashboard;
 
-  // Handle notification outside clicks and Escape key
+  const filteredNavigation = navigation.filter((item) =>
+    item.label.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Close notifications on outside click or Escape
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -118,7 +124,7 @@ function App() {
     };
   }, []);
 
-  // Handle Cmd + K / Ctrl + K search shortcut
+  // Focus search using Cmd + K or Ctrl + K
   useEffect(() => {
     function handleSearchShortcut(event) {
       if (
@@ -136,6 +142,26 @@ function App() {
       document.removeEventListener("keydown", handleSearchShortcut);
     };
   }, []);
+
+  // Clear any pending refresh timer when unmounting
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current !== null) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, []);
+
+  function handleRefresh() {
+    if (isLoading) return;
+
+    setIsLoading(true);
+
+    refreshTimerRef.current = setTimeout(() => {
+      setIsLoading(false);
+      refreshTimerRef.current = null;
+    }, 1200);
+  }
 
   return (
     <div className="app-shell">
@@ -159,26 +185,20 @@ function App() {
         <nav className="nav-section">
           <span className="nav-heading">WORKSPACE</span>
 
-          {navigation
-            .filter((item) =>
-              item.label.toLowerCase().includes(searchQuery.toLowerCase())
-            )
-            .map((item) => (
-              <button
-                key={item.label}
-                className={`nav-item ${
-                  activePage === item.label ? "active" : ""
-                }`}
-                onClick={() => setActivePage(item.label)}
-              >
-                <item.icon size={18} />
-                <span>{item.label}</span>
-              </button>
-            ))}
+          {filteredNavigation.map((item) => (
+            <button
+              key={item.label}
+              className={`nav-item ${
+                activePage === item.label ? "active" : ""
+              }`}
+              onClick={() => setActivePage(item.label)}
+            >
+              <item.icon size={18} />
+              <span>{item.label}</span>
+            </button>
+          ))}
 
-          {navigation.filter((item) =>
-            item.label.toLowerCase().includes(searchQuery.toLowerCase())
-          ).length === 0 && (
+          {filteredNavigation.length === 0 && (
             <p className="no-search-results">No sections found</p>
           )}
         </nav>
@@ -224,6 +244,7 @@ function App() {
 
               {searchQuery ? (
                 <button
+                  type="button"
                   className="clear-search-button"
                   onClick={() => setSearchQuery("")}
                   aria-label="Clear search"
@@ -248,11 +269,12 @@ function App() {
               ref={notificationRef}
             >
               <button
+                type="button"
                 className="notification-button"
                 aria-label="Notifications"
                 aria-expanded={showNotifications}
                 onClick={() =>
-                  setShowNotifications(!showNotifications)
+                  setShowNotifications((previous) => !previous)
                 }
               >
                 <Bell size={18} />
@@ -278,38 +300,66 @@ function App() {
         </header>
 
         <section className="content">
-            {isLoading && (
-            <div className="loading-indicator">
-                <div className="loading-spinner"></div>
-                <span>Loading workspace...</span>
+          {isLoading && (
+            <div
+              className="loading-indicator"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="loading-spinner"></div>
+              <span>Loading workspace...</span>
             </div>
-)}
+          )}
+
           <div className="page-heading">
             <div className="page-title-group">
-                <div className="page-title-icon">
+              <div className="page-title-icon">
                 <ActiveIcon size={22} />
+              </div>
+
+              <div>
+                <div className="eyebrow">
+                  INVESTIGATION CENTER
                 </div>
 
-                <div>
-                <div className="eyebrow">INVESTIGATION CENTER</div>
-
                 <h1>
-                    {activePage === "Overview"
+                  {activePage === "Overview"
                     ? `${greeting}, Investigator`
                     : activePage}
                 </h1>
 
                 <p>{pageDescriptions[activePage]}</p>
-                </div>
+              </div>
             </div>
 
             {activePage === "Overview" && (
-                <button className="primary-button">
-                <span>+</span>
-                New Investigation
+              <div className="heading-actions">
+                <button
+                  type="button"
+                  className="refresh-button"
+                  onClick={handleRefresh}
+                  disabled={isLoading}
+                  aria-label="Refresh dashboard"
+                >
+                  <RefreshCw
+                    size={15}
+                    className={
+                      isLoading ? "refresh-spinning" : ""
+                    }
+                  />
+                  Refresh
                 </button>
+
+                <button
+                  type="button"
+                  className="primary-button"
+                >
+                  <span>+</span>
+                  New Investigation
+                </button>
+              </div>
             )}
-            </div>
+          </div>
 
           {activePage === "Overview" && (
             <>
@@ -352,7 +402,10 @@ function App() {
                     </p>
                   </div>
 
-                  <button className="text-button">
+                  <button
+                    type="button"
+                    className="text-button"
+                  >
                     View all
                   </button>
                 </div>
