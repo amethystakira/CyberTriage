@@ -290,46 +290,59 @@ function App() {
                 )}
               </button>
 
-              {showNotifications && (
-                <div className="notification-panel">
+              
+            {showNotifications && (
+            <div className="notification-panel">
                 <div className="notification-panel-header">
                 <h3>Notifications</h3>
                 <button
                     type="button"
                     className="close-notifications"
-                    onClick={() => setShowNotifications(false)}
+                    onClick={() => setShowNotifications((previous) => !previous)}
                     aria-label="Close notifications"
                 >
                     <X size={15} />
                 </button>
                 </div>
+
                 <button
-                    type="button"
-                    className="mark-read-button"
-                    onClick={() => setUnreadCount(0)}
+                type="button"
+                className="mark-read-button"
+                onClick={() => setUnreadCount(0)}
                 >
-                    Mark all as read
+                Mark all as read
                 </button>
 
-                <div className="notification-item">
+                {unreadCount > 0 ? (
+                <>
+                    <div className="notification-item">
                     <span className="notification-item-dot"></span>
                     <div>
-                    <strong>New investigation created</strong>
-                    <p>A new investigation is ready to be configured.</p>
-                    <small>Just now</small>
+                        <strong>New investigation created</strong>
+                        <p>A new investigation is ready to be configured.</p>
+                        <small>Just now</small>
                     </div>
-                </div>
+                    </div>
 
-                <div className="notification-item">
+                    <div className="notification-item">
                     <span className="notification-item-dot"></span>
                     <div>
-                    <strong>Evidence storage updated</strong>
-                    <p>Your evidence workspace is ready.</p>
-                    <small>5 minutes ago</small>
+                        <strong>Evidence storage updated</strong>
+                        <p>Your evidence workspace is ready.</p>
+                        <small>5 minutes ago</small>
                     </div>
+                    </div>
+                </>
+                ) : (
+                <div className="notification-empty">
+                    <Bell size={20} />
+                    <p>You're all caught up!</p>
+                    <span>No unread notifications.</span>
                 </div>
-                </div>
-              )}
+                )}
+            </div>
+            )}
+
             </div>
 
             <div className="environment-badge">
