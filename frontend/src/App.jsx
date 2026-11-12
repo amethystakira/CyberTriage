@@ -124,6 +124,9 @@ function App() {
   const [caseError, setCaseError] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [unreadCount, setUnreadCount] = useState(2);
+  const [caseModalOpen, setCaseModalOpen] = useState(false);
+  const [caseName, setCaseName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadWorkspace = useCallback(async () => {
   const response = await fetch("/api/reports");
@@ -276,6 +279,39 @@ const filteredCases = cases.filter((item) => {
             refreshTimerRef.current = null;
         }, 1200);
     }
+
+  async function createCase(event) {
+    event.preventDefault();
+    setCaseError("");
+    setIsSaving(true);
+
+    try {
+      await apiRequest("/api/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: caseName.trim(),
+          investigator: settings.investigatorName,
+          severity: settings.defaultSeverity,
+        }),
+      });
+
+      await loadWorkspace();
+      setCaseName("");
+      setCaseModalOpen(false);
+      setActivePage("Investigations");
+    } catch (error) {
+      setCaseError(error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function openCaseForm() {
+    setCaseError("");
+    setCaseName("");
+    setCaseModalOpen(true);
+  }
 
   return (
     <div className="app-shell">
@@ -514,6 +550,7 @@ const filteredCases = cases.filter((item) => {
                 <button
                   type="button"
                   className="primary-button"
+                  onClick={openCaseForm}
                 >
                   <span>+</span>
                   New Investigation
@@ -578,7 +615,6 @@ const filteredCases = cases.filter((item) => {
                 />
               </div>
             </>
-          )}
           ) : activePage === "Investigations" ? (
   <section className="activity-section">
     <div className="section-heading">
@@ -644,9 +680,76 @@ const filteredCases = cases.filter((item) => {
 ) : null}
         </section>
       </main>
+
+      {caseModalOpen && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setCaseModalOpen(false);
+            }
+          }}
+        >
+          <form className="case-dialog" onSubmit={createCase}>
+            <div className="panel-heading">
+              <div>
+                <h3>New Investigation</h3>
+                <p>Create a case in your local investigation database.</p>
+              </div>
+
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Close"
+                onClick={() => setCaseModalOpen(false)}
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <label className="case-form-label" htmlFor="case-name">
+              Investigation name
+            </label>
+
+            <input
+              id="case-name"
+              className="case-form-input"
+              autoFocus
+              required
+              maxLength={200}
+              value={caseName}
+              onChange={(event) => setCaseName(event.target.value)}
+              placeholder="e.g. Suspicious login activity"
+            />
+
+            {caseError && (
+              <p className="form-error" role="alert">
+                {caseError}
+              </p>
+            )}
+
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setCaseModalOpen(false)}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={isSaving}
+              >
+                {isSaving ? "Creating…" : "Create Investigation"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
-
 
 export default App;
