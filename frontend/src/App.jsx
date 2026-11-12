@@ -14,6 +14,8 @@ import {
   Search,
   X,
   RefreshCw,
+  Settings,
+  CheckCircle2,
 } from "lucide-react";
 
 import "./App.css";
@@ -53,6 +55,7 @@ const navigation = [
   { label: "Findings", icon: AlertTriangle },
   { label: "Timeline", icon: Clock3 },
   { label: "Reports", icon: FileBarChart },
+  { label: "Settings", icon: Settings },
 ];
 
 const pageDescriptions = {
@@ -63,6 +66,7 @@ const pageDescriptions = {
   Findings: "Review important findings from your investigations.",
   Timeline: "Track important events across your investigations.",
   Reports: "Generate and manage investigation reports.",
+  Settings: "Manage your workspace identity and investigation defaults.",
 };
 
 function StatCard({ icon: Icon, label, value, color }) {
@@ -313,6 +317,13 @@ const filteredCases = cases.filter((item) => {
     setCaseModalOpen(true);
     }
 
+    function saveSettings(nextSettings) {
+    localStorage.setItem(
+      "cybertriage-settings",
+      JSON.stringify(nextSettings)
+    );
+    setSettings(nextSettings);
+  }
   return (
     <div className="app-shell">
     <aside className="sidebar">
@@ -677,6 +688,8 @@ const filteredCases = cases.filter((item) => {
       </div>
     )}
   </section>
+) : activePage === "Settings" ? (
+  <SettingsModule settings={settings} onSave={saveSettings} />
 ) : null}
         </section>
       </main>
@@ -753,6 +766,158 @@ const filteredCases = cases.filter((item) => {
         </div>
       )}
     </div>
+  );
+}
+
+function SettingsModule({ settings, onSave }) {
+  const [form, setForm] = useState(settings);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setMessage("");
+    setError("");
+  }
+
+  function submit(event) {
+    event.preventDefault();
+
+    try {
+      onSave({
+        workspaceName: form.workspaceName.trim(),
+        investigatorName: form.investigatorName.trim(),
+        defaultSeverity: form.defaultSeverity,
+      });
+
+      setMessage("Settings saved in this browser.");
+    } catch (saveError) {
+      setError(`Could not save settings: ${saveError.message}`);
+    }
+  }
+
+  return (
+    <>
+      <section className="page-heading">
+        <div>
+          <div className="eyebrow">PREFERENCES</div>
+          <h1>Settings</h1>
+          <p>
+            Set the local workspace identity and defaults used for new
+            investigations.
+          </p>
+        </div>
+      </section>
+
+      <form className="settings-form" onSubmit={submit}>
+        <section className="panel settings-card">
+          <div className="settings-card-heading">
+            <div className="settings-card-icon">
+              <Settings size={18} />
+            </div>
+            <div>
+              <h2>Workspace identity</h2>
+              <p>These details personalize the dashboard on this browser.</p>
+            </div>
+          </div>
+
+          <label className="form-field">
+            <span>Workspace name</span>
+            <input
+              required
+              maxLength="60"
+              value={form.workspaceName}
+              onChange={(event) =>
+                updateField("workspaceName", event.target.value)
+              }
+              placeholder="e.g. Incident Response Lab"
+            />
+          </label>
+
+          <label className="form-field">
+            <span>Investigator name</span>
+            <input
+              required
+              maxLength="60"
+              value={form.investigatorName}
+              onChange={(event) =>
+                updateField("investigatorName", event.target.value)
+              }
+              placeholder="Your name"
+            />
+          </label>
+        </section>
+
+        <section className="panel settings-card">
+          <div className="settings-card-heading">
+            <div className="settings-card-icon purple">
+              <FolderSearch size={18} />
+            </div>
+            <div>
+              <h2>New investigation defaults</h2>
+              <p>
+                New cases use these values. You can change their status later
+                from the case menu.
+              </p>
+            </div>
+          </div>
+
+          <label className="form-field">
+            <span>Default severity</span>
+            <select
+              value={form.defaultSeverity}
+              onChange={(event) =>
+                updateField("defaultSeverity", event.target.value)
+              }
+            >
+              <option>Unassigned</option>
+              <option>Low</option>
+              <option>Medium</option>
+              <option>High</option>
+              <option>Critical</option>
+            </select>
+          </label>
+        </section>
+
+        <section className="panel settings-storage">
+          <HardDrive size={18} />
+          <div>
+            <strong>Local data storage</strong>
+            <p>
+              Investigation records are stored in SQLite. Evidence files are
+              kept in the project's evidence folder. Workspace preferences
+              are saved in this browser.
+            </p>
+          </div>
+        </section>
+
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {message && <p className="form-success" role="status">{message}</p>}
+
+        <div className="settings-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setForm({
+                workspaceName: "Investigation Unit",
+                investigatorName: "A. Pal",
+                defaultSeverity: "Unassigned",
+              });
+              setMessage("");
+              setError("");
+            }}
+          >
+            Restore defaults
+          </button>
+
+          <button className="primary-button">
+            <CheckCircle2 size={16} />
+            Save Settings
+          </button>
+        </div>
+      </form>
+    </>
   );
 }
 
