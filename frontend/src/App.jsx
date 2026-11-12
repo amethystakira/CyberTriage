@@ -339,19 +339,12 @@ function App() {
             {activePage === "Overview" && (
               <div className="heading-actions">
                 <button
-                  type="button"
-                  className="refresh-button"
-                  onClick={handleRefresh}
-                  disabled={isLoading}
-                  aria-label="Refresh dashboard"
-                >
-                  <RefreshCw
-                    size={15}
-                    className={
-                      isLoading ? "refresh-spinning" : ""
-                    }
-                  />
-                  Refresh
+                    className="secondary-button"
+                    onClick={handleRefresh}
+                    disabled={isLoading}
+                    >
+                    <RefreshCw size={14} className={isLoading ? "spin" : ""} />
+                    {isLoading ? "Refreshing..." : "Refresh"}
                 </button>
 
             <span className="last-refreshed">
