@@ -293,6 +293,13 @@ function App() {
               {showNotifications && (
                 <div className="notification-panel">
                 <h3>Notifications</h3>
+                <button
+                    type="button"
+                    className="mark-read-button"
+                    onClick={() => setUnreadCount(0)}
+                >
+                    Mark all as read
+                </button>
 
                 <div className="notification-item">
                     <span className="notification-item-dot"></span>

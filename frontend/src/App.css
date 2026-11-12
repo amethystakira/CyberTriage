@@ -823,3 +823,17 @@ button {
   font-size: 10px;
   color: #a0a8b5;
 }
+
+.mark-read-button {
+  border: none;
+  background: transparent;
+  color: #3b82f6;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0 10px;
+}
+
+.mark-read-button:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
