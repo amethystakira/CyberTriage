@@ -787,3 +787,39 @@ button {
   font-weight: 700;
   border: 2px solid white;
 }
+
+.notification-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e8ebf0;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+
+.notification-item strong {
+  display: block;
+  font-size: 12px;
+}
+
+.notification-item p {
+  margin: 4px 0;
+  font-size: 11px;
+  color: #8993a4;
+}
+
+.notification-item small {
+  font-size: 10px;
+  color: #a0a8b5;
+}

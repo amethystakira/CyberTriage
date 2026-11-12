@@ -292,11 +292,25 @@ function App() {
 
               {showNotifications && (
                 <div className="notification-panel">
-                  <h3>Notifications</h3>
-                  <p>You're all caught up!</p>
-                  <span>
-                    New investigation updates will appear here.
-                  </span>
+                <h3>Notifications</h3>
+
+                <div className="notification-item">
+                    <span className="notification-item-dot"></span>
+                    <div>
+                    <strong>New investigation created</strong>
+                    <p>A new investigation is ready to be configured.</p>
+                    <small>Just now</small>
+                    </div>
+                </div>
+
+                <div className="notification-item">
+                    <span className="notification-item-dot"></span>
+                    <div>
+                    <strong>Evidence storage updated</strong>
+                    <p>Your evidence workspace is ready.</p>
+                    <small>5 minutes ago</small>
+                    </div>
+                </div>
                 </div>
               )}
             </div>
