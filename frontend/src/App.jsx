@@ -144,17 +144,21 @@ function App() {
   const [updatingCaseId, setUpdatingCaseId] = useState(null);
   const [caseStatusError, setCaseStatusError] = useState("");
 
+  const fetchWorkspace = useCallback(async () => {
+    const response = await fetch("/api/reports");
+
+    if (!response.ok) {
+      throw new Error("Could not load workspace data from the API.");
+    }
+
+    return response.json();
+  }, []);
+
   const loadWorkspace = useCallback(async () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/reports");
-
-      if (!response.ok) {
-        throw new Error("Could not load workspace data from the API.");
-      }
-
-      const data = await response.json();
+      const data = await fetchWorkspace();
       setWorkspace({ ...emptyWorkspace, ...data });
       setLastRefreshed(new Date());
       setWorkspaceError("");
@@ -165,13 +169,29 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchWorkspace]);
 
   useEffect(() => {
-    loadWorkspace().catch(() => {
-      // The error is shown in the workspace interface.
-    });
-  }, [loadWorkspace]);
+    let isCurrent = true;
+
+    fetchWorkspace()
+      .then((data) => {
+        if (!isCurrent) return;
+        setWorkspace({ ...emptyWorkspace, ...data });
+        setLastRefreshed(new Date());
+        setWorkspaceError("");
+      })
+      .catch((error) => {
+        if (isCurrent) setWorkspaceError(error.message);
+      })
+      .finally(() => {
+        if (isCurrent) setIsLoading(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [fetchWorkspace]);
 
   useEffect(() => {
   let isCurrent = true;
@@ -684,16 +704,37 @@ const filteredCases = cases.filter((item) => {
                   <button
                     type="button"
                     className="text-button"
+                    onClick={() => setActivePage("Timeline")}
                   >
                     View all
                   </button>
                 </div>
 
-                <EmptyState
-                  icon={Activity}
-                  title="No recent activity"
-                  description="Activity will appear here as investigations progress."
-                />
+                {workspace.timeline.length ? (
+                  <ol className="timeline-list dashboard-timeline">
+                    {workspace.timeline.slice(0, 4).map((event) => (
+                      <li key={event.event_id}>
+                        <span className="timeline-dot" />
+                        <div>
+                          <strong>{event.event_type}</strong>
+                          <p>{event.description}</p>
+                          <span>
+                            {event.case_id
+                              ? `${event.case_id}${event.case_name ? ` · ${event.case_name}` : ""} · `
+                              : "Workspace · "}
+                            {formatDate(event.occurred_at)}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <EmptyState
+                    icon={Activity}
+                    title="No recent activity"
+                    description="Activity will appear here as investigations progress."
+                  />
+                )}
               </div>
             </>
           ) : activePage === "Investigations" ? (
