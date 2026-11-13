@@ -18,6 +18,8 @@ import {
   CheckCircle2,
   Settings,
   CheckCircle2,
+  Upload,
+  Download,
 } from "lucide-react";
 
 import "./App.css";
@@ -103,6 +105,9 @@ function EmptyState({ icon: Icon, title, description }) {
   );
 }
 
+function ResourceEmptyState({ text }) {
+  return <div className="resource-empty">{text}</div>;
+}
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, options);
 
@@ -704,6 +709,12 @@ const filteredCases = cases.filter((item) => {
   </section>
 ) : activePage === "Settings" ? (
   <SettingsModule settings={settings} onSave={saveSettings} />
+) : activePage === "Evidence" ? (
+  <EvidenceModule
+    cases={cases}
+    evidence={workspace.evidence}
+    onChanged={loadWorkspace}
+  />
 ) : activePage === "Settings" ? (
   <SettingsModule settings={settings} onSave={saveSettings} />
 ) : null}
@@ -939,5 +950,126 @@ function SettingsModule({ settings, onSave }) {
   </>;
 }
 
+
+function EvidenceModule({ cases, evidence, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function upload(event) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const form = new FormData(event.currentTarget);
+      await apiRequest("/api/evidence", { method: "POST", body: form });
+      formElement.reset();
+      setMessage("Evidence stored and SHA-256 recorded.");
+      await onChanged();
+    } catch (uploadError) {
+      setError(uploadError.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <ModuleHeading
+        eyebrow="EVIDENCE MANAGEMENT"
+        title="Evidence"
+        description="Add files to the local evidence workspace and verify their SHA-256 hashes."
+      />
+
+      <form className="panel module-form" onSubmit={upload}>
+        <label className="form-field">
+          <span>Evidence file <b>*</b></span>
+          <input type="file" name="file" required />
+          <small>
+            Files are copied into the project evidence folder and are never
+            executed. Maximum size: 25 MB.
+          </small>
+        </label>
+
+        <label className="form-field">
+          <span>Investigation (optional)</span>
+          <select name="case_id" defaultValue="">
+            <option value="">No investigation linked</option>
+            {cases.map((item) => (
+              <option key={item.case_id} value={item.case_id}>
+                {item.case_id} — {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {message && <p className="form-success" role="status">{message}</p>}
+
+        <button className="primary-button" disabled={busy}>
+          <Upload size={16} />
+          {busy ? "Adding evidence…" : "Add Evidence"}
+        </button>
+      </form>
+
+      <section className="panel resource-panel">
+        <div className="panel-heading">
+          <div>
+            <h3>Evidence items</h3>
+            <p>{evidence.length} item(s) in the workspace</p>
+          </div>
+        </div>
+
+        {evidence.length ? (
+          <div className="resource-list">
+            {evidence.map((item) => (
+              <article className="resource-row" key={item.evidence_id}>
+                <div className="resource-icon purple">
+                  <HardDrive size={18} />
+                </div>
+
+                <div className="resource-main">
+                  <strong>{item.original_name}</strong>
+                  <span>
+                    {item.case_id || "Unlinked"}
+                    {item.case_name ? ` · ${item.case_name}` : ""}
+                    {" · "}
+                    {formatBytes(item.size_bytes)}
+                    {" · "}
+                    {formatDate(item.uploaded_at)}
+                  </span>
+                  <code>SHA-256: {item.sha256}</code>
+                </div>
+
+                <a
+                  className="secondary-button evidence-download"
+                  href={`/api/evidence/${item.evidence_id}/download`}
+                  download
+                >
+                  <Download size={15} /> Download
+                </a>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <ResourceEmptyState text="No evidence added yet. Choose a file above to start." />
+        )}
+      </section>
+    </>
+  );
+}
+function formatBytes(size) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(value) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+}
 
 export default App;
