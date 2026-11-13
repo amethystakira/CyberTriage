@@ -19,6 +19,7 @@ import {
   Upload,
   Download,
   ShieldCheck,
+  Plus,
 } from "lucide-react";
 
 import "./App.css";
@@ -730,10 +731,16 @@ const filteredCases = cases.filter((item) => {
     evidence={workspace.evidence}
     onChanged={loadWorkspace}
   />
-) : activePage === "Analysis" ? (
+ ) : activePage === "Analysis" ? (
   <AnalysisModule
     evidence={workspace.evidence}
     runs={workspace.analysis_runs}
+    onChanged={loadWorkspace}
+  />
+) : activePage === "Findings" ? (
+  <FindingsModule
+    cases={cases}
+    findings={workspace.findings}
     onChanged={loadWorkspace}
   />
 ) : activePage === "Settings" ? (
@@ -963,6 +970,178 @@ function SettingsModule({ settings, onSave }) {
   </>;
 }
 
+
+function FindingsModule({ cases, findings, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function addFinding(event) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    const form = new FormData(formElement);
+    const payload = Object.fromEntries(form.entries());
+    payload.title = payload.title.trim();
+    payload.description = payload.description.trim();
+    if (!payload.case_id) payload.case_id = null;
+
+    if (!payload.title || !payload.description) {
+      setError("Enter both a finding title and description.");
+      setBusy(false);
+      return;
+    }
+
+    try {
+      await apiRequest("/api/findings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      formElement.reset();
+      setMessage("Finding recorded successfully.");
+      await onChanged();
+    } catch (createError) {
+      setError(createError.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleFinding(item) {
+    setError("");
+    setMessage("");
+
+    try {
+      await apiRequest(
+        `/api/findings/${encodeURIComponent(item.finding_id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: item.status === "Open" ? "Resolved" : "Open",
+          }),
+        }
+      );
+      await onChanged();
+    } catch (updateError) {
+      setError(updateError.message);
+    }
+  }
+
+  return (
+    <>
+      <ModuleHeading
+        eyebrow="MANUAL REVIEW"
+        title="Findings"
+        description="Record observations, attach them to an investigation, and track whether they are resolved."
+      />
+
+      <form className="panel module-form finding-form" onSubmit={addFinding}>
+        <label className="form-field">
+          <span>Finding title</span>
+          <input
+            name="title"
+            required
+            maxLength={200}
+            placeholder="e.g. Unknown remote connection"
+          />
+        </label>
+
+        <label className="form-field">
+          <span>Description</span>
+          <textarea
+            name="description"
+            required
+            rows={3}
+            placeholder="What did you observe, and where?"
+          />
+        </label>
+
+        <div className="form-row">
+          <label className="form-field">
+            <span>Investigation</span>
+            <select name="case_id" defaultValue="">
+              <option value="">Unlinked</option>
+              {cases.map((item) => (
+                <option key={item.case_id} value={item.case_id}>
+                  {item.case_id} — {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="form-field">
+            <span>Severity</span>
+            <select name="severity" defaultValue="Medium">
+              <option>Low</option>
+              <option>Medium</option>
+              <option>High</option>
+              <option>Critical</option>
+            </select>
+          </label>
+
+          <button className="primary-button" disabled={busy}>
+            <Plus size={16} />
+            {busy ? "Saving…" : "Add Finding"}
+          </button>
+        </div>
+
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {message && <p className="form-success" role="status">{message}</p>}
+      </form>
+
+      <section className="panel resource-panel">
+        <div className="panel-heading">
+          <div>
+            <h3>Recorded findings</h3>
+            <p>{findings.length} finding(s)</p>
+          </div>
+        </div>
+
+        {findings.length ? (
+          <div className="resource-list">
+            {findings.map((item) => (
+              <article className="finding-row" key={item.finding_id}>
+                <div className={`severity-mark ${(item.severity || "medium").toLowerCase()}`}>
+                  <AlertTriangle size={17} />
+                </div>
+
+                <div className="resource-main">
+                  <strong>{item.title}</strong>
+                  <p>{item.description}</p>
+                  <span>
+                    {item.case_id || "Unlinked"}
+                    {item.case_name ? ` · ${item.case_name}` : ""}
+                    {item.created_at ? ` · ${formatDate(item.created_at)}` : ""}
+                  </span>
+                </div>
+
+                <span className={`data-tag ${item.status === "Resolved" ? "resolved" : ""}`}>
+                  {item.status}
+                </span>
+
+                <button
+                  type="button"
+                  className="secondary-button compact-button"
+                  onClick={() => toggleFinding(item)}
+                  disabled={busy}
+                >
+                  {item.status === "Open" ? "Resolve" : "Reopen"}
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <ResourceEmptyState text="No findings recorded. Add one above or run a rule scan on evidence." />
+        )}
+      </section>
+    </>
+  );
+}
 
 function EvidenceModule({ cases, evidence, onChanged }) {
   const [busy, setBusy] = useState(false);
