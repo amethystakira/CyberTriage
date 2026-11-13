@@ -16,10 +16,9 @@ import {
   RefreshCw,
   Settings,
   CheckCircle2,
-  Settings,
-  CheckCircle2,
   Upload,
   Download,
+  ShieldCheck,
 } from "lucide-react";
 
 import "./App.css";
@@ -59,7 +58,6 @@ const navigation = [
   { label: "Findings", icon: AlertTriangle },
   { label: "Timeline", icon: Clock3 },
   { label: "Reports", icon: FileBarChart },
-  { label: "Settings", icon: Settings },
 ];
 
 const pageDescriptions = {
@@ -133,6 +131,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [caseError, setCaseError] = useState("");
+  const [workspaceError, setWorkspaceError] = useState("");
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [unreadCount, setUnreadCount] = useState(2);
   const [caseModalOpen, setCaseModalOpen] = useState(false);
@@ -140,18 +139,35 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
 
   const loadWorkspace = useCallback(async () => {
-  const response = await fetch("/api/reports");
+    setIsLoading(true);
 
-  if (!response.ok) {
-    throw new Error("Could not load workspace data from the API.");
-  }
+    try {
+      const response = await fetch("/api/reports");
 
-  const data = await response.json();
+      if (!response.ok) {
+        throw new Error("Could not load workspace data from the API.");
+      }
 
-  setWorkspace({ ...emptyWorkspace, ...data });
-}, []);
+      const data = await response.json();
+      setWorkspace({ ...emptyWorkspace, ...data });
+      setLastRefreshed(new Date());
+      setWorkspaceError("");
+      return data;
+    } catch (error) {
+      setWorkspaceError(error.message);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-useEffect(() => {
+  useEffect(() => {
+    loadWorkspace().catch(() => {
+      // The error is shown in the workspace interface.
+    });
+  }, [loadWorkspace]);
+
+  useEffect(() => {
   let isCurrent = true;
 
   const checkApi = () => {
@@ -186,7 +202,6 @@ useEffect(() => {
 }, []);
 
   const notificationRef = useRef(null);
-  const refreshTimerRef = useRef(null);
 
   const currentHour = new Date().getHours();
 
@@ -270,30 +285,26 @@ const filteredCases = cases.filter((item) => {
     };
   }, []);
 
-  // Clear any pending refresh timer when unmounting
-  useEffect(() => {
-    return () => {
-      if (refreshTimerRef.current !== null) {
-        clearTimeout(refreshTimerRef.current);
-      }
-    };
-  }, []);
+  async function handleRefresh() {
+    if (isLoading) return;
 
-    function handleRefresh() {
-        if (isLoading) return;
-
-        setIsLoading(true);
-
-        refreshTimerRef.current = setTimeout(() => {
-            setIsLoading(false);
-            setLastRefreshed(new Date());
-            refreshTimerRef.current = null;
-        }, 1200);
+    try {
+      await loadWorkspace();
+    } catch {
+      // loadWorkspace records the error for display.
     }
+  }
 
   async function createCase(event) {
     event.preventDefault();
     setCaseError("");
+
+    const trimmedCaseName = caseName.trim();
+    if (!trimmedCaseName) {
+      setCaseError("Investigation name cannot be empty.");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -301,7 +312,7 @@ const filteredCases = cases.filter((item) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: caseName.trim(),
+          name: trimmedCaseName,
           investigator: settings.investigatorName,
           severity: settings.defaultSeverity,
         }),
@@ -324,13 +335,14 @@ const filteredCases = cases.filter((item) => {
     setCaseModalOpen(true);
     }
 
-    function saveSettings(nextSettings) {
+  function saveSettings(nextSettings) {
     localStorage.setItem(
       "cybertriage-settings",
       JSON.stringify(nextSettings)
     );
     setSettings(nextSettings);
   }
+
   return (
     <div className="app-shell">
     <aside className="sidebar">
@@ -398,7 +410,6 @@ const filteredCases = cases.filter((item) => {
               <span>Local investigator</span>
             </div>
           </div>
-        </div>
     </aside>
 
       <main className="main-area">
@@ -536,6 +547,12 @@ const filteredCases = cases.filter((item) => {
               <div className="loading-spinner"></div>
               <span>Loading workspace...</span>
             </div>
+          )}
+
+          {workspaceError && (
+            <p className="form-error" role="alert">
+              {workspaceError}
+            </p>
           )}
 
           <div className="page-heading">
@@ -707,12 +724,16 @@ const filteredCases = cases.filter((item) => {
       </div>
     )}
   </section>
-) : activePage === "Settings" ? (
-  <SettingsModule settings={settings} onSave={saveSettings} />
 ) : activePage === "Evidence" ? (
   <EvidenceModule
     cases={cases}
     evidence={workspace.evidence}
+    onChanged={loadWorkspace}
+  />
+) : activePage === "Analysis" ? (
+  <AnalysisModule
+    evidence={workspace.evidence}
+    runs={workspace.analysis_runs}
     onChanged={loadWorkspace}
   />
 ) : activePage === "Settings" ? (
@@ -788,19 +809,11 @@ const filteredCases = cases.filter((item) => {
               >
                 {isSaving ? "Creating…" : "Create Investigation"}
               </button>
-            </div>
           </form>
         </div>
       )}
     </div>
   );
-  function saveSettings(nextSettings) {
-  localStorage.setItem(
-    "cybertriage-settings",
-    JSON.stringify(nextSettings)
-  );
-  setSettings(nextSettings);
-}
 }
 
 
@@ -1061,6 +1074,149 @@ function EvidenceModule({ cases, evidence, onChanged }) {
     </>
   );
 }
+function AnalysisModule({ evidence, runs, onChanged }) {
+  const [selected, setSelected] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [latest, setLatest] = useState(null);
+
+  async function runScan(event) {
+    event.preventDefault();
+    if (!selected) return;
+
+    setBusy(true);
+    setError("");
+
+    try {
+      const result = await apiRequest(
+        `/api/evidence/${encodeURIComponent(selected)}/analyze`,
+        { method: "POST" }
+      );
+      setLatest(result);
+      await onChanged();
+    } catch (scanError) {
+      setError(scanError.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <ModuleHeading
+        eyebrow="RULE-BASED REVIEW"
+        title="Analysis"
+        description="Run a small, explainable text scan against stored evidence. Results are suggestions for manual review."
+      />
+
+      <form className="panel module-form inline-form" onSubmit={runScan}>
+        <label className="form-field grow-field">
+          <span>Evidence to scan</span>
+          <select
+            required
+            value={selected}
+            onChange={(event) => setSelected(event.target.value)}
+          >
+            <option value="">Select an evidence item</option>
+            {evidence.map((item) => (
+              <option key={item.evidence_id} value={item.evidence_id}>
+                {item.original_name} · {item.case_id || "Unlinked"}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button
+          className="primary-button"
+          disabled={busy || evidence.length === 0}
+        >
+          <ScanSearch size={16} />
+          {busy ? "Scanning…" : "Run rule scan"}
+        </button>
+
+        {error && <p className="form-error" role="alert">{error}</p>}
+      </form>
+
+      <div className="notice-panel">
+        <ShieldCheck size={18} />
+        <div>
+          <strong>What this scan checks</strong>
+          <p>
+            It searches readable text for IPv4 addresses and a short list
+            of suspicious command keywords. It does not use AI, unpack
+            files, or execute evidence. A match is not proof of malicious
+            activity.
+          </p>
+        </div>
+      </div>
+
+      {latest && <AnalysisResult result={latest} />}
+
+      <section className="panel resource-panel">
+        <div className="panel-heading">
+          <div>
+            <h3>Previous scans</h3>
+            <p>Each scan is saved to the timeline.</p>
+          </div>
+        </div>
+
+        {runs.length ? (
+          <div className="resource-list">
+            {runs.map((run) => (
+              <article className="resource-row" key={run.run_id}>
+                <div className="resource-icon blue">
+                  <ScanSearch size={18} />
+                </div>
+                <div className="resource-main">
+                  <strong>{run.original_name}</strong>
+                  <span>
+                    {formatDate(run.created_at)} · {run.summary}
+                  </span>
+                  {run.indicators?.length > 0 && (
+                    <div className="tag-list">
+                      {run.indicators.map((indicator, index) => (
+                        <span
+                          className="data-tag"
+                          key={`${run.run_id}-${index}`}
+                        >
+                          {indicator.type}: {indicator.value}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <ResourceEmptyState text="No analysis runs yet." />
+        )}
+      </section>
+    </>
+  );
+}
+
+function AnalysisResult({ result }) {
+  const indicators = result.indicators || [];
+
+  return (
+    <section className="panel result-panel">
+      <h3>Scan result</h3>
+      <p>{result.summary}</p>
+      {indicators.length > 0 && (
+        <ul className="indicator-list">
+          {indicators.map((item, index) => (
+            <li key={`${item.value}-${index}`}>
+              <strong>{item.type}: {item.value}</strong>
+              <span>{item.reason}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function formatBytes(size) {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
