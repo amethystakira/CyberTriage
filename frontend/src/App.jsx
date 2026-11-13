@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Plus,
   ChevronDown,
+  FileText,
 } from "lucide-react";
 
 import "./App.css";
@@ -746,6 +747,8 @@ const filteredCases = cases.filter((item) => {
   />
 ) : activePage === "Timeline" ? (
   <TimelineModule cases={cases} events={workspace.timeline} />
+) : activePage === "Reports" ? (
+  <ReportsModule workspace={workspace} />
 ) : activePage === "Settings" ? (
   <SettingsModule settings={settings} onSave={saveSettings} />
 ) : null}
@@ -1478,6 +1481,279 @@ function AnalysisResult({ result }) {
             </li>
           ))}
         </ul>
+      )}
+    </section>
+  );
+}
+
+
+function ReportsModule({ workspace }) {
+  const reportData = {
+    generated_at: new Date().toISOString(),
+    ...workspace,
+  };
+
+  const csvRows = [
+    ...workspace.investigations.map((row) => [
+      "Investigation",
+      row.case_id,
+      row.case_id,
+      row.name,
+      `${row.status} / ${row.severity}`,
+      row.date,
+    ]),
+    ...workspace.evidence.map((row) => [
+      "Evidence",
+      row.evidence_id,
+      row.case_id || "",
+      row.original_name,
+      `SHA-256 ${row.sha256}; ${row.size_bytes} bytes`,
+      row.uploaded_at,
+    ]),
+    ...workspace.findings.map((row) => [
+      "Finding",
+      row.finding_id,
+      row.case_id || "",
+      row.title,
+      `${row.severity} / ${row.status}: ${row.description}`,
+      row.created_at,
+    ]),
+    ...workspace.analysis_runs.map((row) => [
+      "Analysis",
+      row.run_id,
+      "",
+      row.original_name,
+      row.summary,
+      row.created_at,
+    ]),
+    ...workspace.timeline.map((row) => [
+      "Timeline",
+      row.event_id,
+      row.case_id || "",
+      row.event_type,
+      row.description,
+      row.occurred_at,
+    ]),
+  ];
+
+  function download(content, filename, type) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadCsv() {
+    const rows = [
+      ["record_type", "record_id", "case_id", "name", "details", "created_at"],
+      ...csvRows,
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row
+          .map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`)
+          .join(",")
+      )
+      .join("\r\n");
+
+    download(csv, "cybertriage-report.csv", "text/csv;charset=utf-8");
+  }
+
+  return (
+    <>
+      <ModuleHeading
+        eyebrow="INVESTIGATION OUTPUT"
+        title="Reports"
+        description="Export the current workspace data or print a report to PDF."
+      />
+
+      <section className="panel report-actions">
+        <button
+          className="primary-button"
+          onClick={() =>
+            download(
+              JSON.stringify(reportData, null, 2),
+              "cybertriage-report.json",
+              "application/json"
+            )
+          }
+        >
+          <Download size={16} /> Download JSON
+        </button>
+
+        <button className="secondary-button" onClick={downloadCsv}>
+          <Download size={16} /> Download CSV
+        </button>
+
+        <button
+          className="secondary-button"
+          onClick={() => window.print()}
+        >
+          <FileText size={16} /> Print / Save as PDF
+        </button>
+      </section>
+
+      <section className="panel report-preview">
+        <h2>Workspace report</h2>
+        <p>Generated {formatDate(reportData.generated_at)}</p>
+
+        <div className="report-counts">
+          <span>
+            <strong>{workspace.investigations.length}</strong> investigations
+          </span>
+          <span>
+            <strong>{workspace.evidence.length}</strong> evidence items
+          </span>
+          <span>
+            <strong>{workspace.findings.length}</strong> findings
+          </span>
+          <span>
+            <strong>{workspace.timeline.length}</strong> timeline events
+          </span>
+        </div>
+
+        <p>
+          The JSON and CSV files contain the current investigation, evidence,
+          finding, and timeline records. Use your browser’s print dialog to
+          save this report as PDF.
+        </p>
+      </section>
+
+      <section className="report-print">
+        <h1>CyberTriage Investigation Report</h1>
+        <p className="report-generated">
+          Generated {formatDate(reportData.generated_at)}
+        </p>
+
+        <div className="print-summary">
+          <span>
+            <strong>{workspace.investigations.length}</strong> Investigations
+          </span>
+          <span>
+            <strong>{workspace.evidence.length}</strong> Evidence items
+          </span>
+          <span>
+            <strong>{workspace.findings.length}</strong> Findings
+          </span>
+          <span>
+            <strong>{workspace.timeline.length}</strong> Timeline events
+          </span>
+        </div>
+
+        <ReportPrintTable
+          title="Investigations"
+          columns={[
+            "Case ID",
+            "Investigation",
+            "Investigator",
+            "Created",
+            "Severity",
+            "Status",
+          ]}
+          rows={workspace.investigations.map((item) => [
+            item.case_id,
+            item.name,
+            item.investigator,
+            item.date,
+            item.severity,
+            item.status,
+          ])}
+        />
+
+        <ReportPrintTable
+          title="Evidence"
+          columns={["File", "Case", "Size", "SHA-256", "Added"]}
+          rows={workspace.evidence.map((item) => [
+            item.original_name,
+            item.case_id || "Unlinked",
+            formatBytes(item.size_bytes),
+            item.sha256,
+            formatDate(item.uploaded_at),
+          ])}
+        />
+
+        <ReportPrintTable
+          title="Findings"
+          columns={[
+            "Finding",
+            "Case",
+            "Severity",
+            "Status",
+            "Description",
+            "Recorded",
+          ]}
+          rows={workspace.findings.map((item) => [
+            item.title,
+            item.case_id || "Unlinked",
+            item.severity,
+            item.status,
+            item.description,
+            formatDate(item.created_at),
+          ])}
+        />
+
+        <ReportPrintTable
+          title="Analysis runs"
+          columns={["Evidence", "Summary", "Indicators", "Scanned"]}
+          rows={workspace.analysis_runs.map((item) => [
+            item.original_name,
+            item.summary,
+            (item.indicators || [])
+              .map((indicator) => `${indicator.type}: ${indicator.value}`)
+              .join("; ") || "None detected",
+            formatDate(item.created_at),
+          ])}
+        />
+
+        <ReportPrintTable
+          title="Timeline"
+          columns={["Date and time", "Case", "Event", "Details"]}
+          rows={workspace.timeline.map((item) => [
+            formatDate(item.occurred_at),
+            item.case_id || "Workspace",
+            item.event_type,
+            item.description,
+          ])}
+        />
+      </section>
+    </>
+  );
+}
+
+function ReportPrintTable({ title, columns, rows }) {
+  return (
+    <section className="print-report-section">
+      <h2>{title}</h2>
+
+      {rows.length ? (
+        <table className="report-table">
+          <thead>
+            <tr>
+              {columns.map((column) => (
+                <th key={column}>{column}</th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={`${title}-${index}`}>
+                {row.map((value, cellIndex) => (
+                  <td key={`${title}-${index}-${cellIndex}`}>
+                    {value || "—"}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="report-empty">
+          No {title.toLowerCase()} recorded.
+        </p>
       )}
     </section>
   );
