@@ -140,6 +140,9 @@ function App() {
   const [caseModalOpen, setCaseModalOpen] = useState(false);
   const [caseName, setCaseName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [statusMenuCaseId, setStatusMenuCaseId] = useState(null);
+  const [updatingCaseId, setUpdatingCaseId] = useState(null);
+  const [caseStatusError, setCaseStatusError] = useState("");
 
   const loadWorkspace = useCallback(async () => {
     setIsLoading(true);
@@ -295,6 +298,34 @@ const filteredCases = cases.filter((item) => {
       await loadWorkspace();
     } catch {
       // loadWorkspace records the error for display.
+    }
+  }
+
+  async function updateCaseStatus(item, nextStatus) {
+    if (!item?.id || item.status === nextStatus) {
+      setStatusMenuCaseId(null);
+      return;
+    }
+
+    setUpdatingCaseId(item.id);
+    setCaseStatusError("");
+
+    try {
+      await apiRequest(
+        `/api/cases/${encodeURIComponent(item.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: nextStatus }),
+        }
+      );
+
+      await loadWorkspace();
+      setStatusMenuCaseId(null);
+    } catch (error) {
+      setCaseStatusError(error.message);
+    } finally {
+      setUpdatingCaseId(null);
     }
   }
 
@@ -693,6 +724,10 @@ const filteredCases = cases.filter((item) => {
       </select>
     </div>
 
+    {caseStatusError && (
+      <p className="form-error" role="alert">{caseStatusError}</p>
+    )}
+
     {isLoading ? (
       <p>Loading investigations...</p>
     ) : filteredCases.length === 0 ? (
@@ -708,6 +743,7 @@ const filteredCases = cases.filter((item) => {
               <th>Date Created</th>
               <th>Severity</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
 
@@ -719,7 +755,45 @@ const filteredCases = cases.filter((item) => {
                 <td>{item.investigator}</td>
                 <td>{item.date}</td>
                 <td>{item.severity}</td>
-                <td>{item.status}</td>
+                <td>
+                  <span className={`case-status ${String(item.status || "").toLowerCase()}`}>
+                    {item.status || "Pending"}
+                  </span>
+                </td>
+                <td>
+                  <div className="case-status-control">
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      disabled={updatingCaseId === item.id}
+                      aria-expanded={statusMenuCaseId === item.id}
+                      onClick={() => {
+                        setCaseStatusError("");
+                        setStatusMenuCaseId((current) =>
+                          current === item.id ? null : item.id
+                        );
+                      }}
+                    >
+                      {updatingCaseId === item.id ? "Updating…" : "Change status"}
+                    </button>
+
+                    {statusMenuCaseId === item.id && (
+                      <div className="case-actions-menu" role="group" aria-label={`Update status for ${item.id}`}>
+                        <span>Change status</span>
+                        {["Pending", "Analyzing", "Completed"].map((status) => (
+                          <button
+                            key={status}
+                            type="button"
+                            disabled={item.status === status || updatingCaseId === item.id}
+                            onClick={() => updateCaseStatus(item, status)}
+                          >
+                            {status}{item.status === status ? " · current" : ""}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

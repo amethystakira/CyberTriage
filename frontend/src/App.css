@@ -1369,3 +1369,83 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+.case-status-control {
+  position: relative;
+  display: inline-flex;
+}
+
+.case-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #f0f2f5;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.case-status.pending {
+  background: #fff5e5;
+  color: #a66b12;
+}
+
+.case-status.analyzing {
+  background: #eaf2ff;
+  color: #3269b0;
+}
+
+.case-status.completed {
+  background: #e8f7ef;
+  color: #278452;
+}
+
+.case-actions-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 155px;
+  padding: 8px;
+  border: 1px solid #e5e9f0;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 8px 24px #172b4d1a;
+}
+
+.case-actions-menu > span {
+  display: block;
+  padding: 6px 8px;
+  color: #929bad;
+  font-size: 10px;
+}
+
+.case-actions-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #344054;
+  text-align: left;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.case-actions-menu button:hover:not(:disabled) {
+  background: #f2f5fa;
+}
+
+.case-actions-menu button:disabled {
+  color: #aab1bd;
+  cursor: not-allowed;
+}
+
+.compact-button {
+  padding: 7px 10px;
+  font-size: 11px;
+}
