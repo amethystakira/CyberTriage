@@ -20,6 +20,7 @@ import {
   Download,
   ShieldCheck,
   Plus,
+  ChevronDown,
 } from "lucide-react";
 
 import "./App.css";
@@ -743,6 +744,8 @@ const filteredCases = cases.filter((item) => {
     findings={workspace.findings}
     onChanged={loadWorkspace}
   />
+) : activePage === "Timeline" ? (
+  <TimelineModule cases={cases} events={workspace.timeline} />
 ) : activePage === "Settings" ? (
   <SettingsModule settings={settings} onSave={saveSettings} />
 ) : null}
@@ -1137,6 +1140,90 @@ function FindingsModule({ cases, findings, onChanged }) {
           </div>
         ) : (
           <ResourceEmptyState text="No findings recorded. Add one above or run a rule scan on evidence." />
+        )}
+      </section>
+    </>
+  );
+}
+
+
+function TimelineModule({ cases, events }) {
+  const [selectedCaseId, setSelectedCaseId] = useState("all");
+
+  const visibleEvents = selectedCaseId === "all"
+    ? events
+    : events.filter((event) => event.case_id === selectedCaseId);
+
+  const selectedCase = cases.find(
+    (item) => item.case_id === selectedCaseId
+  );
+
+  return (
+    <>
+      <ModuleHeading
+        eyebrow="CASE HISTORY"
+        title="Timeline"
+        description="Choose an investigation to view only its evidence, scans, findings, and status changes."
+      >
+        <label className="timeline-case-picker">
+          <span>Timeline for</span>
+          <span className="timeline-case-select-wrap">
+            <select
+              className="timeline-case-filter"
+              aria-label="Choose case timeline"
+              value={selectedCaseId}
+              onChange={(event) => setSelectedCaseId(event.target.value)}
+            >
+              <option value="all">All investigations</option>
+              {cases.map((item) => (
+                <option key={item.case_id} value={item.case_id}>
+                  {item.case_id} · {item.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={16} aria-hidden="true" />
+          </span>
+        </label>
+      </ModuleHeading>
+
+      <section className="panel timeline-panel">
+        <div className="panel-heading timeline-heading">
+          <div>
+            <h3>
+              {selectedCase
+                ? `${selectedCase.case_id} · ${selectedCase.name}`
+                : "Workspace activity"}
+            </h3>
+            <p>{visibleEvents.length} event(s) in this timeline</p>
+          </div>
+        </div>
+
+        {visibleEvents.length ? (
+          <ol className="timeline-list">
+            {visibleEvents.map((event) => (
+              <li key={event.event_id}>
+                <span className="timeline-dot" />
+                <div>
+                  <strong>{event.event_type}</strong>
+                  <p>{event.description}</p>
+                  <span>
+                    {event.case_id
+                      ? `${event.case_id}${event.case_name ? ` · ${event.case_name}` : ""} · `
+                      : "Workspace · "}
+                    {formatDate(event.occurred_at)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <ResourceEmptyState
+            text={
+              selectedCase
+                ? "No events recorded for this investigation yet."
+                : "Workspace activity will appear here."
+            }
+          />
         )}
       </section>
     </>
