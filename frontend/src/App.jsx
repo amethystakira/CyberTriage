@@ -16,6 +16,8 @@ import {
   RefreshCw,
   Settings,
   CheckCircle2,
+  Settings,
+  CheckCircle2,
 } from "lucide-react";
 
 import "./App.css";
@@ -363,6 +365,18 @@ const filteredCases = cases.filter((item) => {
             <p className="no-search-results">No sections found</p>
           )}
         </nav>
+        <div className="nav-section settings-section">
+            <span className="nav-heading">PREFERENCES</span>
+            <button
+                className={`nav-item ${
+                activePage === "Settings" ? "active" : ""
+                }`}
+                onClick={() => setActivePage("Settings")}
+            >
+                <Settings size={18} />
+                <span>Settings</span>
+            </button>
+        </div>
 
         <div className="system-status">
             <span className={`status-dot ${apiStatus.toLowerCase()}`} />
@@ -690,6 +704,8 @@ const filteredCases = cases.filter((item) => {
   </section>
 ) : activePage === "Settings" ? (
   <SettingsModule settings={settings} onSave={saveSettings} />
+) : activePage === "Settings" ? (
+  <SettingsModule settings={settings} onSave={saveSettings} />
 ) : null}
         </section>
       </main>
@@ -767,6 +783,27 @@ const filteredCases = cases.filter((item) => {
       )}
     </div>
   );
+  function saveSettings(nextSettings) {
+  localStorage.setItem(
+    "cybertriage-settings",
+    JSON.stringify(nextSettings)
+  );
+  setSettings(nextSettings);
+}
+}
+
+
+function ModuleHeading({ eyebrow, title, description, children }) {
+  return (
+    <section className="page-heading">
+      <div>
+        <div className="eyebrow">{eyebrow}</div>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+      {children}
+    </section>
+  );
 }
 
 function SettingsModule({ settings, onSave }) {
@@ -782,143 +819,125 @@ function SettingsModule({ settings, onSave }) {
 
   function submit(event) {
     event.preventDefault();
-
     try {
       onSave({
         workspaceName: form.workspaceName.trim(),
         investigatorName: form.investigatorName.trim(),
         defaultSeverity: form.defaultSeverity,
       });
-
       setMessage("Settings saved in this browser.");
     } catch (saveError) {
       setError(`Could not save settings: ${saveError.message}`);
     }
   }
 
-  return (
-    <>
-      <section className="page-heading">
+  return <>
+    <ModuleHeading
+      eyebrow="PREFERENCES"
+      title="Settings"
+      description="Set the local workspace identity and defaults used for new investigations."
+    />
+    <form className="settings-form" onSubmit={submit}>
+      <section className="panel settings-card">
+        <div className="settings-card-heading">
+          <div className="settings-card-icon">
+            <Settings size={18} />
+          </div>
+          <div>
+            <h2>Workspace identity</h2>
+            <p>These details personalize the dashboard on this browser.</p>
+          </div>
+        </div>
+        <label className="form-field">
+          <span>Workspace name</span>
+          <input
+            required
+            maxLength="60"
+            value={form.workspaceName}
+            onChange={(event) =>
+              updateField("workspaceName", event.target.value)
+            }
+            placeholder="e.g. Incident Response Lab"
+          />
+        </label>
+        <label className="form-field">
+          <span>Investigator name</span>
+          <input
+            required
+            maxLength="60"
+            value={form.investigatorName}
+            onChange={(event) =>
+              updateField("investigatorName", event.target.value)
+            }
+            placeholder="Your name"
+          />
+        </label>
+      </section>
+
+      <section className="panel settings-card">
+        <div className="settings-card-heading">
+          <div className="settings-card-icon purple">
+            <FolderSearch size={18} />
+          </div>
+          <div>
+            <h2>New investigation defaults</h2>
+            <p>
+              New cases use these values. You can change their status later
+              from the case menu.
+            </p>
+          </div>
+        </div>
+        <label className="form-field">
+          <span>Default severity</span>
+          <select
+            value={form.defaultSeverity}
+            onChange={(event) =>
+              updateField("defaultSeverity", event.target.value)
+            }
+          >
+            <option>Unassigned</option>
+            <option>Low</option>
+            <option>Medium</option>
+            <option>High</option>
+            <option>Critical</option>
+          </select>
+        </label>
+      </section>
+
+      <section className="panel settings-storage">
+        <HardDrive size={18} />
         <div>
-          <div className="eyebrow">PREFERENCES</div>
-          <h1>Settings</h1>
+          <strong>Local data storage</strong>
           <p>
-            Set the local workspace identity and defaults used for new
-            investigations.
+            Investigation records are stored in SQLite. Evidence files are
+            kept in the project evidence folder. Workspace preferences are
+            saved in this browser.
           </p>
         </div>
       </section>
 
-      <form className="settings-form" onSubmit={submit}>
-        <section className="panel settings-card">
-          <div className="settings-card-heading">
-            <div className="settings-card-icon">
-              <Settings size={18} />
-            </div>
-            <div>
-              <h2>Workspace identity</h2>
-              <p>These details personalize the dashboard on this browser.</p>
-            </div>
-          </div>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {message && <p className="form-success" role="status">{message}</p>}
 
-          <label className="form-field">
-            <span>Workspace name</span>
-            <input
-              required
-              maxLength="60"
-              value={form.workspaceName}
-              onChange={(event) =>
-                updateField("workspaceName", event.target.value)
-              }
-              placeholder="e.g. Incident Response Lab"
-            />
-          </label>
-
-          <label className="form-field">
-            <span>Investigator name</span>
-            <input
-              required
-              maxLength="60"
-              value={form.investigatorName}
-              onChange={(event) =>
-                updateField("investigatorName", event.target.value)
-              }
-              placeholder="Your name"
-            />
-          </label>
-        </section>
-
-        <section className="panel settings-card">
-          <div className="settings-card-heading">
-            <div className="settings-card-icon purple">
-              <FolderSearch size={18} />
-            </div>
-            <div>
-              <h2>New investigation defaults</h2>
-              <p>
-                New cases use these values. You can change their status later
-                from the case menu.
-              </p>
-            </div>
-          </div>
-
-          <label className="form-field">
-            <span>Default severity</span>
-            <select
-              value={form.defaultSeverity}
-              onChange={(event) =>
-                updateField("defaultSeverity", event.target.value)
-              }
-            >
-              <option>Unassigned</option>
-              <option>Low</option>
-              <option>Medium</option>
-              <option>High</option>
-              <option>Critical</option>
-            </select>
-          </label>
-        </section>
-
-        <section className="panel settings-storage">
-          <HardDrive size={18} />
-          <div>
-            <strong>Local data storage</strong>
-            <p>
-              Investigation records are stored in SQLite. Evidence files are
-              kept in the project's evidence folder. Workspace preferences
-              are saved in this browser.
-            </p>
-          </div>
-        </section>
-
-        {error && <p className="form-error" role="alert">{error}</p>}
-        {message && <p className="form-success" role="status">{message}</p>}
-
-        <div className="settings-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              setForm({
-                workspaceName: "Investigation Unit",
-                investigatorName: "A. Pal",
-                defaultSeverity: "Unassigned",
-              });
-              setMessage("");
-              setError("");
-            }}
-          >
-            Restore defaults
-          </button>
-
-          <button className="primary-button">
-            <CheckCircle2 size={16} />
-            Save Settings
-          </button>
-        </div>
-      </form>
-    </>
-  );
+      <div className="settings-actions">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => {
+            setForm(defaultSettings);
+            setMessage("");
+            setError("");
+          }}
+        >
+          Restore defaults
+        </button>
+        <button className="primary-button">
+          <CheckCircle2 size={16} /> Save Settings
+        </button>
+      </div>
+    </form>
+  </>;
 }
+
 
 export default App;
