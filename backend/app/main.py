@@ -3,17 +3,18 @@ from datetime import datetime
 import csv
 import hashlib
 import io
-import json
+import os
 from pathlib import Path
 import re
-import sqlite3
 import uuid
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+
+from .database import get_db, initialize_schema
 
 
 app = FastAPI(
@@ -30,15 +31,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE = Path(__file__).resolve().parent.parent / "cybertriage.db"
-EVIDENCE_DIR = Path(__file__).resolve().parents[2] / "evidence"
+EVIDENCE_DIR = Path(
+    os.getenv(
+        "CYBERTRIAGE_EVIDENCE_DIR",
+        str(Path(__file__).resolve().parents[2] / "evidence"),
+    )
+)
 MAX_EVIDENCE_BYTES = 25 * 1024 * 1024
-
-
-def get_db():
-    connection = sqlite3.connect(DATABASE)
-    connection.row_factory = sqlite3.Row
-    return connection
 
 
 def record_event(db, event_type, description, case_id=None, occurred_at=None):
@@ -48,96 +47,157 @@ def record_event(db, event_type, description, case_id=None, occurred_at=None):
     )
 
 
+def create_analysis_run(db, evidence_id, summary, indicators, created_at):
+    run = db.execute(
+        "INSERT INTO analysis_runs (evidence_id, summary, created_at) "
+        "VALUES (?, ?, ?) RETURNING run_id",
+        (evidence_id, summary, created_at),
+    ).fetchone()
+    run_id = run["run_id"]
+    for ordinal, indicator in enumerate(indicators):
+        db.execute(
+            "INSERT INTO analysis_indicators "
+            "(run_id, ordinal, indicator_type, value, reason) VALUES (?, ?, ?, ?, ?)",
+            (
+                run_id,
+                ordinal,
+                indicator["type"],
+                indicator["value"],
+                indicator["reason"],
+            ),
+        )
+    return run_id
+
+
 def initialize_db():
+    initialize_schema()
     with get_db() as db:
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS investigations (
-                row_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                case_id TEXT UNIQUE NOT NULL,
-                name TEXT NOT NULL,
-                investigator TEXT NOT NULL,
-                date TEXT NOT NULL,
-                status TEXT NOT NULL,
-                severity TEXT NOT NULL
-            )
-        """)
+        # Seed each demo record by its stable business key. This adds the full
+        # demonstration dataset to empty or existing workspaces without touching
+        # user-created rows, and is safe to run on every backend restart.
+        demo_cases = [
+            ("CASE-2026-001", "Northstar payroll ransomware response", "Maya Chen", "03 Nov 2026", "Analyzing", "Critical"),
+            ("CASE-2026-002", "Meridian VPN credential compromise", "Ravi Menon", "05 Nov 2026", "Analyzing", "High"),
+            ("CASE-2026-003", "Harborview cloud storage exposure", "Elena Torres", "08 Nov 2026", "Pending", "High"),
+            ("CASE-2026-004", "Aster Labs insider data exfiltration", "Jordan Blake", "11 Nov 2026", "Completed", "Critical"),
+            ("CASE-2026-005", "Redwood finance business email compromise", "Samira Khan", "14 Nov 2026", "Completed", "Medium"),
+        ]
+        created_demo_files = []
+        try:
+            for case in demo_cases:
+                db.execute("""
+                    INSERT OR IGNORE INTO investigations
+                    (case_id, name, investigator, date, status, severity)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, case)
 
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS evidence (
-                evidence_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                case_id TEXT,
-                original_name TEXT NOT NULL,
-                stored_name TEXT NOT NULL,
-                sha256 TEXT NOT NULL,
-                size_bytes INTEGER NOT NULL,
-                uploaded_at TEXT NOT NULL,
-                FOREIGN KEY(case_id) REFERENCES investigations(case_id)
-            );
-            CREATE TABLE IF NOT EXISTS findings (
-                finding_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                case_id TEXT,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                severity TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Open',
-                created_at TEXT NOT NULL,
-                FOREIGN KEY(case_id) REFERENCES investigations(case_id)
-            );
-            CREATE TABLE IF NOT EXISTS analysis_runs (
-                run_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                evidence_id INTEGER NOT NULL,
-                summary TEXT NOT NULL,
-                indicators_json TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY(evidence_id) REFERENCES evidence(evidence_id)
-            );
-            CREATE TABLE IF NOT EXISTS timeline_events (
-                event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                case_id TEXT,
-                event_type TEXT NOT NULL,
-                description TEXT NOT NULL,
-                occurred_at TEXT NOT NULL,
-                FOREIGN KEY(case_id) REFERENCES investigations(case_id)
-            );
-        """)
-
-        existing = db.execute(
-            "SELECT COUNT(*) FROM investigations"
-        ).fetchone()[0]
-
-        if existing == 0:
-            sample_cases = [
-                (
-                    "CASE-2026-001",
-                    "Suspicious Network Activity",
-                    "A. Pal",
-                    "03 Nov 2026",
-                    "Analyzing",
-                    "High",
-                ),
-                (
-                    "CASE-2026-002",
-                    "Endpoint Security Review",
-                    "A. Pal",
-                    "02 Nov 2026",
-                    "Completed",
-                    "Medium",
-                ),
-                (
-                    "CASE-2026-003",
-                    "Unauthorized File Access",
-                    "A. Pal",
-                    "01 Nov 2026",
-                    "Pending",
-                    "Critical",
-                ),
+            evidence_samples = [
+                ("CASE-2026-001", "payroll-host-memory-notes.txt", b"Forensic triage notes\nHost: PAYROLL-WS17\nObserved remote address 198.51.100.24\nPowerShell -enc command observed in process log\n"),
+                ("CASE-2026-001", "ransom-note-readme.txt", b"Incident artifact sample\nFiles encrypted; contact response@example.invalid\nNo executable content.\n"),
+                ("CASE-2026-002", "vpn-authentication-export.csv", b"timestamp,account,source_ip,result\n2026-11-05T08:12:00Z,svc-backup,203.0.113.77,failed\n2026-11-05T08:14:00Z,svc-backup,203.0.113.77,success\n"),
+                ("CASE-2026-002", "vpn-client-config.txt", b"Client configuration collected for review\nGateway: vpn.meridian.example\n"),
+                ("CASE-2026-003", "object-access-audit.log", b"2026-11-08T12:22:31Z GET /exports/customer-q3.csv principal=unknown source=192.0.2.44\n"),
+                ("CASE-2026-004", "usb-inventory.txt", b"Endpoint inventory\nDevice: USB mass storage\nUser: analyst.temp\n"),
+                ("CASE-2026-004", "endpoint-command-history.txt", b"Review sample command history\nrundll32.exe observed during collection\n"),
+                ("CASE-2026-005", "mail-header-sample.txt", b"From: finance-director@redwood.example\nReply-To: payment-review@outside.example\nSubject: Urgent invoice update\n"),
             ]
+            evidence_ids = {}
+            for case_id, filename, content in evidence_samples:
+                digest = hashlib.sha256(content).hexdigest()
+                stored_name = f"demo_{digest[:16]}_{filename}"
+                EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+                file_path = EVIDENCE_DIR / stored_name
+                if not file_path.exists():
+                    file_path.write_bytes(content)
+                    created_demo_files.append(file_path)
+                elif hashlib.sha256(file_path.read_bytes()).hexdigest() != digest:
+                    raise RuntimeError(f"Demo evidence file hash mismatch: {stored_name}")
+                db.execute("""
+                    INSERT INTO evidence
+                    (case_id, original_name, stored_name, sha256, size_bytes, uploaded_at)
+                    SELECT ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (
+                        SELECT 1 FROM evidence WHERE case_id = ? AND sha256 = ?
+                    )
+                """, (case_id, filename, stored_name, digest, len(content),
+                      f"2026-11-{3 + len(evidence_ids):02d}T09:30:00+05:30", case_id, digest))
+                evidence_id = db.execute(
+                    "SELECT evidence_id FROM evidence WHERE case_id = ? AND sha256 = ?",
+                    (case_id, digest),
+                ).fetchone()[0]
+                evidence_ids[filename] = evidence_id
 
-            db.executemany("""
-                INSERT INTO investigations
-                (case_id, name, investigator, date, status, severity)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, sample_cases)
+            findings = [
+                ("CASE-2026-001", "Ransomware note present", "A ransom note was recovered from the payroll workstation image.", "Critical", "Open", "2026-11-03T11:15:00+05:30"),
+                ("CASE-2026-001", "Suspicious outbound connection", "Triage notes record a connection to 198.51.100.24 during encryption activity.", "High", "Open", "2026-11-03T12:10:00+05:30"),
+                ("CASE-2026-002", "Service account login from new region", "The svc-backup account succeeded from an unfamiliar source address after repeated failures.", "High", "Open", "2026-11-05T10:30:00+05:30"),
+                ("CASE-2026-002", "Legacy VPN client configuration", "The collected profile permits an outdated authentication method.", "Medium", "Resolved", "2026-11-05T13:20:00+05:30"),
+                ("CASE-2026-003", "Public object accessed by unknown principal", "Audit log shows an unauthenticated request for a customer export.", "Critical", "Open", "2026-11-08T13:00:00+05:30"),
+                ("CASE-2026-003", "Customer export exposure window identified", "Access review narrowed the exposure window to approximately 18 minutes.", "High", "Resolved", "2026-11-08T15:40:00+05:30"),
+                ("CASE-2026-004", "Removable media connected before departure", "USB inventory and endpoint records align with the employee access window.", "High", "Resolved", "2026-11-11T14:05:00+05:30"),
+                ("CASE-2026-004", "Suspicious library execution", "Command history contains a rundll32 invocation requiring attribution review.", "Medium", "Resolved", "2026-11-11T16:25:00+05:30"),
+                ("CASE-2026-005", "Reply-to address differs from sender", "Mail header directs replies to an external lookalike address.", "High", "Open", "2026-11-14T09:50:00+05:30"),
+                ("CASE-2026-005", "Invoice payment request held", "Finance placed the requested transfer on hold pending out-of-band verification.", "Medium", "Resolved", "2026-11-14T11:30:00+05:30"),
+            ]
+            for finding in findings:
+                db.execute("""
+                    INSERT INTO findings (case_id, title, description, severity, status, created_at)
+                    SELECT ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (
+                        SELECT 1 FROM findings WHERE case_id = ? AND title = ?
+                    )
+                """, (*finding, finding[0], finding[1]))
+
+            analysis_samples = [
+                ("payroll-host-memory-notes.txt", "Text triage found a suspicious remote address and an encoded PowerShell command reference.", [{"type": "IPv4 address", "value": "198.51.100.24", "reason": "Address found in evidence text"}, {"type": "Keyword", "value": "powershell -enc", "reason": "Matched a simple review keyword"}]),
+                ("ransom-note-readme.txt", "No configured indicators found in readable text.", []),
+                ("vpn-authentication-export.csv", "Text triage found one source address for analyst review.", [{"type": "IPv4 address", "value": "203.0.113.77", "reason": "Address found in evidence text"}]),
+                ("object-access-audit.log", "Text triage found an address associated with the object access event.", [{"type": "IPv4 address", "value": "192.0.2.44", "reason": "Address found in evidence text"}]),
+                ("endpoint-command-history.txt", "Text triage found a command-line utility reference for manual review.", [{"type": "Keyword", "value": "rundll32", "reason": "Matched a simple review keyword"}]),
+            ]
+            for index, (filename, summary, indicators) in enumerate(analysis_samples, 1):
+                evidence_id = evidence_ids[filename]
+                existing_run = db.execute(
+                    "SELECT run_id FROM analysis_runs WHERE evidence_id = ? AND summary = ?",
+                    (evidence_id, summary),
+                ).fetchone()
+                if not existing_run:
+                    create_analysis_run(
+                        db,
+                        evidence_id,
+                        summary,
+                        indicators,
+                        f"2026-11-{3 + index:02d}T10:00:00+05:30",
+                    )
+
+            events = [
+                ("CASE-2026-001", "Evidence added", "Added evidence file: payroll-host-memory-notes.txt", "2026-11-03T09:30:00+05:30"),
+                ("CASE-2026-001", "Evidence added", "Added evidence file: ransom-note-readme.txt", "2026-11-03T10:10:00+05:30"),
+                ("CASE-2026-001", "Evidence analyzed", "Analyzed evidence file: payroll-host-memory-notes.txt", "2026-11-04T10:00:00+05:30"),
+                ("CASE-2026-001", "Finding recorded", "Recorded finding: Ransomware note present", "2026-11-03T11:15:00+05:30"),
+                ("CASE-2026-002", "Evidence added", "Added evidence file: vpn-authentication-export.csv", "2026-11-05T09:30:00+05:30"),
+                ("CASE-2026-002", "Evidence added", "Added evidence file: vpn-client-config.txt", "2026-11-05T10:00:00+05:30"),
+                ("CASE-2026-002", "Evidence analyzed", "Analyzed evidence file: vpn-authentication-export.csv", "2026-11-05T11:00:00+05:30"),
+                ("CASE-2026-002", "Finding recorded", "Recorded finding: Service account login from new region", "2026-11-05T10:30:00+05:30"),
+                ("CASE-2026-003", "Evidence added", "Added evidence file: object-access-audit.log", "2026-11-08T12:00:00+05:30"),
+                ("CASE-2026-003", "Evidence analyzed", "Analyzed evidence file: object-access-audit.log", "2026-11-09T10:00:00+05:30"),
+                ("CASE-2026-003", "Finding recorded", "Recorded finding: Public object accessed by unknown principal", "2026-11-08T13:00:00+05:30"),
+                ("CASE-2026-004", "Evidence added", "Added evidence file: usb-inventory.txt", "2026-11-11T09:30:00+05:30"),
+                ("CASE-2026-004", "Evidence analyzed", "Analyzed evidence file: endpoint-command-history.txt", "2026-11-12T10:00:00+05:30"),
+                ("CASE-2026-004", "Finding recorded", "Recorded finding: Suspicious library execution", "2026-11-11T16:25:00+05:30"),
+                ("CASE-2026-005", "Evidence added", "Added evidence file: mail-header-sample.txt", "2026-11-14T09:30:00+05:30"),
+                ("CASE-2026-005", "Evidence analyzed", "Reviewed mail header indicators", "2026-11-14T10:00:00+05:30"),
+                ("CASE-2026-005", "Finding recorded", "Recorded finding: Reply-to address differs from sender", "2026-11-14T09:50:00+05:30"),
+            ]
+            for event in events:
+                db.execute("""
+                    INSERT INTO timeline_events (case_id, event_type, description, occurred_at)
+                    SELECT ?, ?, ?, ? WHERE NOT EXISTS (
+                        SELECT 1 FROM timeline_events WHERE case_id = ? AND event_type = ? AND description = ?
+                    )
+                """, (*event, event[0], event[1], event[2]))
+        except Exception:
+            for file_path in created_demo_files:
+                file_path.unlink(missing_ok=True)
+            raise
 
         missing_events = db.execute("""
             SELECT i.case_id, i.name, i.date FROM investigations i
@@ -172,7 +232,7 @@ initialize_db()
 class InvestigationCreate(BaseModel):
     name: str
     investigator: str = "A. Pal"
-    severity: str = "Unassigned"
+    severity: Literal["Unassigned", "Low", "Medium", "High", "Critical"] = "Unassigned"
 
 
 class InvestigationStatusUpdate(BaseModel):
@@ -325,11 +385,12 @@ async def upload_evidence(file: UploadFile = File(...), case_id: str = Form(defa
         with get_db() as db:
             if case_id and not db.execute("SELECT 1 FROM investigations WHERE case_id = ?", (case_id,)).fetchone():
                 raise HTTPException(status_code=404, detail="Investigation not found.")
-            cursor = db.execute("""
+            inserted = db.execute("""
                 INSERT INTO evidence (case_id, original_name, stored_name, sha256, size_bytes, uploaded_at)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (case_id, original_name, stored_name, digest, len(content), uploaded_at))
-            evidence_id = cursor.lastrowid
+                RETURNING evidence_id
+            """, (case_id, original_name, stored_name, digest, len(content), uploaded_at)).fetchone()
+            evidence_id = inserted["evidence_id"]
             record_event(db, "Evidence added", f"Added evidence file: {original_name}", case_id)
     except Exception:
         (EVIDENCE_DIR / stored_name).unlink(missing_ok=True)
@@ -373,12 +434,16 @@ def create_finding(finding: FindingCreate):
         if finding.case_id and not db.execute("SELECT 1 FROM investigations WHERE case_id = ?", (finding.case_id,)).fetchone():
             raise HTTPException(status_code=404, detail="Investigation not found.")
         created_at = datetime.now().astimezone().isoformat(timespec="seconds")
-        cursor = db.execute("""
+        inserted = db.execute("""
             INSERT INTO findings (case_id, title, description, severity, status, created_at)
             VALUES (?, ?, ?, ?, 'Open', ?)
-        """, (finding.case_id, title, description, finding.severity, created_at))
+            RETURNING finding_id
+        """, (finding.case_id, title, description, finding.severity, created_at)).fetchone()
         record_event(db, "Finding recorded", f"Recorded finding: {title}", finding.case_id)
-        row = db.execute("SELECT * FROM findings WHERE finding_id = ?", (cursor.lastrowid,)).fetchone()
+        row = db.execute(
+            "SELECT * FROM findings WHERE finding_id = ?",
+            (inserted["finding_id"],),
+        ).fetchone()
     return dict(row)
 
 
@@ -400,12 +465,35 @@ def update_finding_status(finding_id: int, update: FindingStatusUpdate):
 def get_analysis_runs():
     with get_db() as db:
         rows = db.execute("""
-            SELECT r.run_id, r.evidence_id, r.summary, r.indicators_json, r.created_at,
-                   e.original_name
-            FROM analysis_runs r JOIN evidence e ON e.evidence_id = r.evidence_id
-            ORDER BY r.run_id DESC
+            SELECT r.run_id, r.evidence_id, r.summary, r.created_at, e.original_name,
+                   i.indicator_id, i.ordinal, i.indicator_type, i.value, i.reason
+            FROM analysis_runs r
+            JOIN evidence e ON e.evidence_id = r.evidence_id
+            LEFT JOIN analysis_indicators i ON i.run_id = r.run_id
+            ORDER BY r.run_id DESC, i.ordinal
         """).fetchall()
-    return [{**dict(row), "indicators": json.loads(row["indicators_json"])} for row in rows]
+    runs = {}
+    for row in rows:
+        run = runs.get(row["run_id"])
+        if run is None:
+            run = {
+                "run_id": row["run_id"],
+                "evidence_id": row["evidence_id"],
+                "summary": row["summary"],
+                "created_at": row["created_at"],
+                "original_name": row["original_name"],
+                "indicators": [],
+            }
+            runs[row["run_id"]] = run
+        if row["indicator_id"] is not None:
+            run["indicators"].append(
+                {
+                    "type": row["indicator_type"],
+                    "value": row["value"],
+                    "reason": row["reason"],
+                }
+            )
+    return list(runs.values())
 
 
 @app.post("/api/evidence/{evidence_id}/analyze")
@@ -432,10 +520,7 @@ def analyze_evidence(evidence_id: int):
                 indicators.append({"type": "Keyword", "value": term, "reason": "Matched a simple review keyword"})
         summary = f"Found {len(indicators)} indicator(s) using simple text rules." if indicators else "No configured indicators found in readable text."
         created_at = datetime.now().astimezone().isoformat(timespec="seconds")
-        db.execute("""
-            INSERT INTO analysis_runs (evidence_id, summary, indicators_json, created_at)
-            VALUES (?, ?, ?, ?)
-        """, (evidence_id, summary, json.dumps(indicators), created_at))
+        create_analysis_run(db, evidence_id, summary, indicators, created_at)
         record_event(db, "Evidence analyzed", f"Analyzed evidence file: {evidence['original_name']}", evidence["case_id"])
         for indicator in indicators:
             title = f"{indicator['type']} found: {indicator['value']}"

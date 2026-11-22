@@ -1,0 +1,55 @@
+erDiagram
+    INVESTIGATIONS {
+        integer row_id PK
+        text case_id UK
+        text name
+        text investigator
+        text date
+        text status
+        text severity
+    }
+    EVIDENCE {
+        integer evidence_id PK
+        text case_id FK "nullable"
+        text original_name
+        text stored_name UK
+        text sha256
+        integer size_bytes
+        text uploaded_at
+    }
+    FINDINGS {
+        integer finding_id PK
+        text case_id FK "nullable"
+        text title
+        text description
+        text severity
+        text status
+        text created_at
+    }
+    ANALYSIS_RUNS {
+        integer run_id PK
+        integer evidence_id FK
+        text summary
+        text created_at
+    }
+    ANALYSIS_INDICATORS {
+        integer indicator_id PK
+        integer run_id FK
+        integer ordinal
+        text indicator_type
+        text value
+        text reason
+    }
+    TIMELINE_EVENTS {
+        integer event_id PK
+        text case_id FK "nullable"
+        text event_type
+        text description
+        text occurred_at
+    }
+
+    INVESTIGATIONS o|--o{ EVIDENCE : collects
+    INVESTIGATIONS o|--o{ FINDINGS : records
+    INVESTIGATIONS o|--o{ TIMELINE_EVENTS : tracks
+    EVIDENCE ||--o{ ANALYSIS_RUNS : analyzed_in
+    ANALYSIS_RUNS ||--o{ ANALYSIS_INDICATORS : returns

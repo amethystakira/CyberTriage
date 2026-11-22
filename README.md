@@ -1,8 +1,13 @@
 # CyberTriage
 
-CyberTriage is a local digital forensics and incident response workspace. It
-includes a React dashboard, a FastAPI API, a SQLite database, evidence storage,
-basic rule-based evidence scans, investigation timelines, and report exports.
+CyberTriage is a digital forensics and incident response workspace. It includes
+a React dashboard, a FastAPI API, a relational database, evidence storage, basic
+rule-based evidence scans, investigation timelines, and report exports.
+
+The backend uses SQLite by default. Set `DATABASE_URL` to a PostgreSQL URL to
+use PostgreSQL through SQLAlchemy; the existing SQLite database remains the
+default fallback. See [DE/README.md](DE/README.md) for the data model, SQL
+examples, migration notes, and query evidence.
 
 ## Requirements
 
@@ -37,6 +42,18 @@ The API runs at <http://127.0.0.1:8000>. Its interactive documentation is at
 sample investigations automatically. Uploaded evidence is saved in the local
 `evidence/` folder.
 
+To use a local `.env` file, copy `.env.example` to `.env`, fill in
+`DATABASE_URL` if needed, then export its values before starting the API:
+
+```bash
+set -a
+source .env
+set +a
+```
+
+Leave `DATABASE_URL` empty to use SQLite. For PostgreSQL, set it to a
+`postgresql+psycopg://...` URL. Do not commit `.env` or real credentials.
+
 ### Start the web app
 
 In a second terminal, from the project root:
@@ -58,6 +75,38 @@ cd frontend
 npm ci
 npm run build
 ```
+
+## Run backend tests
+
+From the repository root:
+
+```bash
+cd backend
+python -m unittest discover -s tests -v
+cd ..
+python -m unittest discover -s tests -v
+```
+
+The backend tests use a temporary SQLite database by default. To run them
+against a dedicated PostgreSQL test database, set
+`CYBERTRIAGE_TEST_DATABASE_URL` to that database's URL before invoking unittest.
+Do not point tests at a database containing data you need to keep.
+
+## Migrate SQLite data to PostgreSQL
+
+First create an empty PostgreSQL database and take a backup of the SQLite
+database and `evidence/` directory. Then set `DATABASE_URL` to the PostgreSQL
+target and run:
+
+```bash
+python -m backend.migrate_sqlite_to_postgres
+```
+
+The migration copies the existing rows, expands legacy analysis indicator JSON
+into rows, verifies evidence SHA-256 hashes, and leaves the SQLite source
+unchanged. It refuses to copy into a PostgreSQL database that already contains
+application rows. Set `SQLITE_SOURCE_PATH`, `SQLITE_SOURCE_EVIDENCE_DIR`, and
+`CYBERTRIAGE_EVIDENCE_DIR` to override the default paths.
 
 ## Detection engine quick analysis
 
