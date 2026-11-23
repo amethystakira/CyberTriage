@@ -39,8 +39,11 @@ On Windows PowerShell, activate the environment with
 
 The API runs at <http://127.0.0.1:8000>. Its interactive documentation is at
 <http://127.0.0.1:8000/docs>. The first run creates the SQLite database and
-sample investigations automatically. Uploaded evidence is saved in the local
-`evidence/` folder. On first use, the web app prompts you to create the initial
+seeds a demo dataset automatically: 5 investigations, 8 harmless text evidence
+files, 10 findings, 5 analysis runs, and related timeline events. Seeding is
+idempotent: backend restarts do not duplicate demo rows or overwrite
+user-created records. Uploaded evidence is saved in the local `evidence/`
+folder. On first use, the web app prompts you to create the initial
 administrator account. Authentication, session, and viva demo details are in
 [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
@@ -77,6 +80,19 @@ cd frontend
 npm ci
 npm run build
 ```
+
+## macOS desktop installer
+
+The macOS desktop app bundles the frontend and FastAPI backend. It creates its
+own SQLite database and demo dataset on first launch, then prompts you to set
+up the initial administrator account. The packaged app stores its database and
+uploaded evidence in `~/Library/Application Support/CyberTriage/`; it does not
+use or modify the development database in this checkout. The current build is
+for Apple Silicon (arm64).
+
+See [DMG_BUILD.md](DMG_BUILD.md) for setup and build commands. The local DMG is
+unsigned and not notarized; for public distribution, sign and notarize it with
+a Developer ID certificate.
 
 ## Run backend tests
 

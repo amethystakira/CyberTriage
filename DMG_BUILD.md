@@ -2,8 +2,13 @@
 
 This project builds an unsigned local macOS installer containing the React app
 and the FastAPI service. The installer is a drag-to-Applications DMG. On first
-launch, CyberTriage stores its SQLite database and uploaded evidence in its
-per-user Application Support folder; the application bundle remains read-only.
+launch, CyberTriage creates a per-user SQLite database, seeds the demo dataset,
+and prompts you to create the initial administrator account. The demo includes
+5 investigations, 8 harmless text evidence files, 10 findings, 5 analysis runs,
+and related timeline events. The database and uploaded evidence live in
+`~/Library/Application Support/CyberTriage/`; the app does not bundle or modify
+the development database in this checkout. The application bundle remains
+read-only.
 
 ## Build on an Apple Silicon Mac
 
@@ -24,5 +29,7 @@ code-signed or notarized by this local build; macOS may require the user to
 approve opening it. Distribution outside a development/demo context should be
 signed and notarized with the project's Developer ID credentials.
 
-At first launch, create the initial administrator account using the in-app
-setup form. Existing repository database files are not bundled or modified.
+The DMG is a self-contained demo installation. At first launch, use the in-app
+setup form to create the initial administrator account; the sample cases and
+evidence are available after setup. Existing repository database files are not
+bundled or modified.
