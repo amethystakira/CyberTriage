@@ -21,6 +21,7 @@ dist/
 __pycache__/
 *.pyc
 .venv/
+.venv-dmg/
 venv/
 
 # Environment
@@ -39,3 +40,4 @@ venv/
 reports/
 evidence/
 *.db
+desktop/build/

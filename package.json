@@ -1,0 +1,42 @@
+{
+  "name": "cybertriage-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CyberTriage macOS desktop application",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "build:frontend": "npm --prefix frontend run build",
+    "build:backend": "mkdir -p desktop/build/spec && PYINSTALLER_CONFIG_DIR=desktop/build/config .venv-dmg/bin/python -m PyInstaller --noconfirm --clean --onedir --name CyberTriageAPI --paths backend --specpath desktop/build/spec --distpath desktop/build/backend --workpath desktop/build/pyinstaller --collect-submodules app --collect-all uvicorn backend/desktop_entry.py",
+    "build:mac": "npm run build:frontend && npm run build:backend && electron-builder --mac dmg"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.cybertriage.desktop",
+    "productName": "CyberTriage",
+    "asar": true,
+    "files": [
+      "desktop/main.cjs",
+      "frontend/dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "desktop/build/backend/CyberTriageAPI",
+        "to": "backend"
+      }
+    ],
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.business",
+      "icon": "desktop/assets/icon.png"
+    },
+    "dmg": {
+      "contents": [
+        {"x": 130, "y": 220},
+        {"x": 410, "y": 220, "type": "link", "path": "/Applications"}
+      ]
+    }
+  }
+}
