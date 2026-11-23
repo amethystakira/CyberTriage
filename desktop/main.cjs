@@ -44,6 +44,7 @@ function startApi(port, userData) {
       CYBERTRIAGE_HOST: "127.0.0.1",
       CYBERTRIAGE_PORT: String(port),
       CYBERTRIAGE_COOKIE_SECURE: "0",
+      CYBERTRIAGE_SEED_DEMO_DATA: "0",
     },
     stdio: "ignore",
   });

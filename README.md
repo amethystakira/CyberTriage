@@ -83,12 +83,14 @@ npm run build
 
 ## macOS desktop installer
 
-The macOS desktop app bundles the frontend and FastAPI backend. It creates its
-own SQLite database and demo dataset on first launch, then prompts you to set
-up the initial administrator account. The packaged app stores its database and
-uploaded evidence in `~/Library/Application Support/CyberTriage/`; it does not
-use or modify the development database in this checkout. The current build is
-for Apple Silicon (arm64).
+The macOS desktop app bundles the frontend and FastAPI backend. It creates an
+empty SQLite database on first launch, then prompts the user to set up the
+initial administrator account. New users start with no investigations, evidence,
+findings, analysis runs, or timeline events. Development runs still seed the
+demo dataset by default. The packaged app stores its database and uploaded
+evidence in `~/Library/Application Support/CyberTriage/`; it does not use or
+modify the development database in this checkout. The current build is for
+Apple Silicon (arm64).
 
 See [DMG_BUILD.md](DMG_BUILD.md) for setup and build commands. The local DMG is
 unsigned and not notarized; for public distribution, sign and notarize it with

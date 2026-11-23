@@ -291,6 +291,13 @@ def create_analysis_run(db, evidence_id, summary, indicators, created_at):
 
 def initialize_db():
     initialize_schema()
+    # Desktop installs ship as clean workspaces. Development runs keep the
+    # demonstration dataset unless explicitly disabled by the desktop entrypoint.
+    if os.getenv("CYBERTRIAGE_SEED_DEMO_DATA", "1").strip().lower() in {
+        "0", "false", "no", "off"
+    }:
+        return
+
     with get_db() as db:
         # Seed each demo record by its stable business key. This adds the full
         # demonstration dataset to empty or existing workspaces without touching
