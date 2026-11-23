@@ -56,6 +56,29 @@ if IS_SQLITE:
 
 metadata = MetaData()
 
+users = Table(
+    "users",
+    metadata,
+    Column("user_id", Integer, primary_key=True, autoincrement=True),
+    Column("email", Text, nullable=False, unique=True),
+    Column("display_name", Text, nullable=False),
+    Column("password_hash", Text, nullable=False),
+    Column("role", Text, nullable=False, server_default=text("'Analyst'")),
+    Column("is_active", Integer, nullable=False, server_default=text("1")),
+    Column("created_at", Text, nullable=False),
+    CheckConstraint("role IN ('Admin', 'Analyst')", name="ck_users_role"),
+)
+
+auth_sessions = Table(
+    "auth_sessions",
+    metadata,
+    Column("session_hash", Text, primary_key=True),
+    Column("user_id", Integer, ForeignKey("users.user_id"), nullable=False),
+    Column("csrf_token", Text, nullable=False),
+    Column("created_at", Text, nullable=False),
+    Column("expires_at", Text, nullable=False),
+)
+
 investigations = Table(
     "investigations",
     metadata,
@@ -66,6 +89,7 @@ investigations = Table(
     Column("date", Text, nullable=False),
     Column("status", Text, nullable=False),
     Column("severity", Text, nullable=False),
+    Column("owner_id", Integer, ForeignKey("users.user_id"), nullable=True),
     CheckConstraint(
         "status IN ('Pending', 'Analyzing', 'Completed')",
         name="ck_investigations_status",
@@ -255,6 +279,7 @@ def initialize_schema():
 
     if not has_legacy_indicators:
         metadata.create_all(engine)
+        _migrate_case_ownership()
         return
 
     if IS_SQLITE:
@@ -281,6 +306,7 @@ def initialize_schema():
                 )
                 _insert_indicators(connection, row["run_id"], row["indicators_json"])
             connection.exec_driver_sql("DROP TABLE analysis_runs_legacy")
+        _migrate_case_ownership()
         return
 
     metadata.create_all(engine)
@@ -294,3 +320,18 @@ def initialize_schema():
         for row in legacy_rows:
             _insert_indicators(connection, row["run_id"], row["indicators_json"])
         connection.exec_driver_sql("ALTER TABLE analysis_runs DROP COLUMN indicators_json")
+    _migrate_case_ownership()
+
+
+def _migrate_case_ownership():
+    """Add ownership to existing case tables without changing existing rows."""
+    columns = {column["name"] for column in inspect(engine).get_columns("investigations")}
+    if "owner_id" not in columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE investigations ADD COLUMN owner_id INTEGER "
+                "REFERENCES users(user_id)"
+            )
+    Index("ix_investigations_owner_id", investigations.c.owner_id).create(
+        engine, checkfirst=True
+    )

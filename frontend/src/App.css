@@ -50,6 +50,10 @@ button {
   font-weight: bold;
 }
 
+.brand-icon svg {
+  display: block;
+}
+
 .brand h2 {
   font-size: 19px;
   margin: 0;
@@ -1448,4 +1452,68 @@ button {
 .compact-button {
   padding: 7px 10px;
   font-size: 11px;
+}
+
+.auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f2f5fa;
+}
+
+.auth-card {
+  width: min(100%, 430px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 34px;
+  border: 1px solid #e5eaf1;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 18px 55px #18315312;
+}
+
+.auth-card .brand-icon {
+  margin-bottom: 4px;
+}
+
+.auth-card h1,
+.auth-card p {
+  margin: 0;
+}
+
+.auth-card h1 {
+  color: #202b3c;
+  font-size: 23px;
+}
+
+.auth-card > p:not(.eyebrow):not(.form-error) {
+  color: #778397;
+  line-height: 1.5;
+}
+
+.auth-card small {
+  color: #687488;
+  margin-top: -8px;
+}
+
+.auth-card .primary-button {
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.logout-button {
+  margin-left: auto;
+  padding: 7px 9px;
+  border: 1px solid #e5e9f0;
+  border-radius: 7px;
+  color: #536176;
+  background: #fff;
+  font-size: 11px;
+}
+
+.logout-button:hover {
+  color: #2868bb;
+  border-color: #b8d0f1;
 }

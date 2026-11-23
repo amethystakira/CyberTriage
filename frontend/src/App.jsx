@@ -40,6 +40,8 @@ const defaultSettings = {
   defaultSeverity: "Unassigned",
 };
 
+let currentCsrfToken = "";
+
 function readSettings() {
   try {
     return {
@@ -110,17 +112,71 @@ function ResourceEmptyState({ text }) {
   return <div className="resource-empty">{text}</div>;
 }
 async function apiRequest(url, options = {}) {
-  const response = await fetch(url, options);
+  const method = (options.method || "GET").toUpperCase();
+  const headers = new Headers(options.headers || {});
+  if (!["GET", "HEAD", "OPTIONS"].includes(method) && currentCsrfToken) {
+    headers.set("X-CSRF-Token", currentCsrfToken);
+  }
+  const response = await fetch(url, { ...options, method, headers, credentials: "same-origin" });
 
-  const data = await response.json().catch(() => ({}));
+  const rawBody = await response.text();
+  let data;
+  try {
+    data = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    data = { detail: rawBody.slice(0, 240) };
+  }
 
   if (!response.ok) {
     throw new Error(
-      data.detail || data.message || "Something went wrong."
+      data.detail || data.message || `Request failed (HTTP ${response.status}).`
     );
   }
 
   return data;
+}
+
+function AuthGate({ setupRequired, onAuthenticated }) {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    const form = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(form.entries());
+    try {
+      const result = await apiRequest(
+        setupRequired ? "/api/auth/bootstrap" : "/api/auth/login",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
+      );
+      onAuthenticated(result);
+    } catch (authError) {
+      setError(authError.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="auth-screen">
+      <form className="auth-card" onSubmit={submit}>
+        <div className="brand-icon" aria-hidden="true"><ShieldCheck size={25} strokeWidth={2.2} /></div>
+        <p className="eyebrow">DIGITAL FORENSICS WORKSPACE</p>
+        <h1>{setupRequired ? "Create the first administrator" : "Sign in to CyberTriage"}</h1>
+        <p>{setupRequired ? "Initial setup is open because this database has no user accounts." : "Use your assigned account to open your investigations. The first account is created during initial setup."}</p>
+        {setupRequired && (
+          <label className="form-field"><span>Display name</span><input name="display_name" required autoComplete="name" /></label>
+        )}
+        <label className="form-field"><span>Email</span><input name="email" type="email" required autoComplete="username" /></label>
+        <label className="form-field"><span>Password</span><input name="password" type="password" required minLength={setupRequired ? 12 : 1} autoComplete={setupRequired ? "new-password" : "current-password"} /></label>
+        {setupRequired && <small>Use at least 12 characters. This account receives the Admin role.</small>}
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <button className="primary-button" disabled={busy}>{busy ? "Please wait…" : setupRequired ? "Set up administrator" : "Sign in"}</button>
+      </form>
+    </main>
+  );
 }
 
 function App() {
@@ -135,6 +191,11 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [caseError, setCaseError] = useState("");
   const [workspaceError, setWorkspaceError] = useState("");
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [setupRequired, setSetupRequired] = useState(null);
+  const [authCheckError, setAuthCheckError] = useState("");
+  const [authCheckAttempt, setAuthCheckAttempt] = useState(0);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const [unreadCount, setUnreadCount] = useState(2);
   const [caseModalOpen, setCaseModalOpen] = useState(false);
@@ -173,25 +234,35 @@ function App() {
 
   useEffect(() => {
     let isCurrent = true;
-
-    fetchWorkspace()
-      .then((data) => {
-        if (!isCurrent) return;
-        setWorkspace({ ...emptyWorkspace, ...data });
-        setLastRefreshed(new Date());
-        setWorkspaceError("");
-      })
-      .catch((error) => {
-        if (isCurrent) setWorkspaceError(error.message);
-      })
-      .finally(() => {
-        if (isCurrent) setIsLoading(false);
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [fetchWorkspace]);
+    async function initializeAuth() {
+      try {
+        const response = await fetch("/api/auth/me", { credentials: "same-origin" });
+        if (response.ok) {
+          const session = await response.json();
+          currentCsrfToken = session.csrf_token;
+          if (isCurrent) setAuthUser(session.user);
+          const data = await fetchWorkspace();
+          if (isCurrent) setWorkspace({ ...emptyWorkspace, ...data });
+        } else {
+          const statusResponse = await fetch("/api/auth/status", { credentials: "same-origin" });
+          if (!statusResponse.ok) {
+            throw new Error(`Could not check account setup (HTTP ${statusResponse.status}).`);
+          }
+          const status = await statusResponse.json();
+          if (isCurrent) setSetupRequired(status.setup_required);
+        }
+      } catch (error) {
+        if (isCurrent) setAuthCheckError(error.message || "Could not connect to the CyberTriage API.");
+      } finally {
+        if (isCurrent) {
+          setAuthLoading(false);
+          setIsLoading(false);
+        }
+      }
+    }
+    initializeAuth();
+    return () => { isCurrent = false; };
+  }, [fetchWorkspace, authCheckAttempt]);
 
   useEffect(() => {
   let isCurrent = true;
@@ -397,11 +468,56 @@ const filteredCases = cases.filter((item) => {
     setSettings(nextSettings);
   }
 
+  async function handleAuthenticated(result) {
+    currentCsrfToken = result.csrf_token;
+    setAuthUser(result.user);
+    setWorkspaceError("");
+    try {
+      await loadWorkspace();
+    } catch {
+      // The workspace error is shown in the authenticated shell.
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Clear the local session even if the server is temporarily unavailable.
+    } finally {
+      currentCsrfToken = "";
+      setAuthUser(null);
+      setWorkspace(emptyWorkspace);
+      setSetupRequired(false);
+    }
+  }
+
+  if (authLoading) {
+    return <main className="auth-screen"><p>Checking your session…</p></main>;
+  }
+
+  if (!authUser) {
+    if (setupRequired === null) {
+      return (
+        <main className="auth-screen">
+          <section className="auth-card" role="alert">
+            <div className="brand-icon" aria-hidden="true"><ShieldCheck size={25} strokeWidth={2.2} /></div>
+            <h1>Can’t check your CyberTriage account</h1>
+            <p>{authCheckError || "The API did not tell the app whether initial setup is needed."}</p>
+            <small>Confirm the backend is running, then retry. The app will not guess whether an account exists.</small>
+            <button className="primary-button" onClick={() => { setAuthCheckError(""); setAuthLoading(true); setAuthCheckAttempt((value) => value + 1); }}>Retry</button>
+          </section>
+        </main>
+      );
+    }
+    return <AuthGate setupRequired={setupRequired} onAuthenticated={handleAuthenticated} />;
+  }
+
   return (
     <div className="app-shell">
     <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">CT</div>
+          <div className="brand-icon" aria-hidden="true"><ShieldCheck size={25} strokeWidth={2.2} /></div>
           <div>
             <h2>CyberTriage</h2>
             <span>FORENSICS WORKBENCH</span>
@@ -458,11 +574,12 @@ const filteredCases = cases.filter((item) => {
         </div>
 
           <div className="profile">
-            <div className="profile-avatar">AP</div>
+            <div className="profile-avatar">{authUser.display_name.slice(0, 2).toUpperCase()}</div>
             <div>
-              <strong>{settings.investigatorName}</strong>
-              <span>Local investigator</span>
+              <strong>{authUser.display_name}</strong>
+              <span>{authUser.role} · {authUser.email}</span>
             </div>
+            <button type="button" className="logout-button" onClick={handleLogout}>Sign out</button>
           </div>
     </aside>
 
@@ -1184,9 +1301,9 @@ function FindingsModule({ cases, findings, onChanged }) {
 
         <div className="form-row">
           <label className="form-field">
-            <span>Investigation</span>
-            <select name="case_id" defaultValue="">
-              <option value="">Unlinked</option>
+            <span>Investigation <b>*</b></span>
+            <select name="case_id" defaultValue="" required>
+              <option value="" disabled>Select an investigation</option>
               {cases.map((item) => (
                 <option key={item.case_id} value={item.case_id}>
                   {item.case_id} — {item.name}
@@ -1392,9 +1509,9 @@ function EvidenceModule({ cases, evidence, onChanged }) {
         </label>
 
         <label className="form-field">
-          <span>Investigation (optional)</span>
-          <select name="case_id" defaultValue="">
-            <option value="">No investigation linked</option>
+          <span>Investigation <b>*</b></span>
+          <select name="case_id" defaultValue="" required>
+            <option value="" disabled>Select an investigation</option>
             {cases.map((item) => (
               <option key={item.case_id} value={item.case_id}>
                 {item.case_id} — {item.name}

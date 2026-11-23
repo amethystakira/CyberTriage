@@ -2,16 +2,19 @@
 from datetime import datetime
 import csv
 import hashlib
+import hmac
 import io
 import os
 from pathlib import Path
 import re
+import secrets
 import uuid
+from datetime import timedelta, timezone
 from typing import Literal, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from .database import get_db, initialize_schema
@@ -38,6 +41,223 @@ EVIDENCE_DIR = Path(
     )
 )
 MAX_EVIDENCE_BYTES = 25 * 1024 * 1024
+SESSION_COOKIE = "cybertriage_session"
+SESSION_HOURS = 8
+COOKIE_SECURE = os.getenv("CYBERTRIAGE_COOKIE_SECURE", "0") == "1"
+login_attempts = {}
+
+
+def _utc_now():
+    return datetime.now(timezone.utc)
+
+
+def _session_digest(raw_token):
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def hash_password(password):
+    salt = secrets.token_bytes(16)
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 600_000, dklen=32)
+    return f"pbkdf2_sha256$600000${salt.hex()}${derived.hex()}"
+
+
+def verify_password(encoded_hash, password):
+    try:
+        algorithm, iterations, salt_hex, expected_hex = encoded_hash.split("$", 3)
+        if algorithm != "pbkdf2_sha256" or iterations != "600000":
+            return False
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(expected_hex)
+        if len(salt) != 16 or len(expected) != 32:
+            return False
+        actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 600_000, dklen=32)
+        return hmac.compare_digest(actual, expected)
+    except (ValueError, TypeError):
+        return False
+
+
+def _public_user(row):
+    return {
+        "user_id": row["user_id"],
+        "email": row["email"],
+        "display_name": row["display_name"],
+        "role": row["role"],
+    }
+
+
+@app.middleware("http")
+async def authenticate_api_requests(request: Request, call_next):
+    """Resolve server-side sessions and enforce CSRF on every API mutation."""
+    path = request.url.path
+    public_paths = {"/api/health", "/api/auth/status", "/api/auth/bootstrap", "/api/auth/login"}
+    if path.startswith("/api/") and path not in public_paths and request.method != "OPTIONS":
+        raw_token = request.cookies.get(SESSION_COOKIE)
+        if not raw_token:
+            response = JSONResponse({"detail": "Authentication required."}, status_code=401)
+        else:
+            digest = _session_digest(raw_token)
+            with get_db() as db:
+                row = db.execute(
+                    "SELECT s.session_hash, s.csrf_token, s.expires_at, u.user_id, u.email, "
+                    "u.display_name, u.role FROM auth_sessions s JOIN users u ON u.user_id=s.user_id "
+                    "WHERE s.session_hash=? AND u.is_active=1",
+                    (digest,),
+                ).fetchone()
+            if not row or row["expires_at"] <= _utc_now().isoformat():
+                if row:
+                    with get_db() as db:
+                        db.execute("DELETE FROM auth_sessions WHERE session_hash=?", (digest,))
+                response = JSONResponse({"detail": "Session expired. Please log in again."}, status_code=401)
+            elif request.method in {"POST", "PUT", "PATCH", "DELETE"} and not hmac.compare_digest(
+                request.headers.get("X-CSRF-Token", ""), row["csrf_token"]
+            ):
+                response = JSONResponse({"detail": "CSRF token missing or invalid."}, status_code=403)
+            else:
+                request.state.user = _public_user(row)
+                request.state.csrf_token = row["csrf_token"]
+                request.state.session_hash = digest
+                response = await call_next(request)
+    else:
+        response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    return response
+
+
+def _start_session(db, user_id, response):
+    raw_token = secrets.token_urlsafe(32)
+    csrf_token = secrets.token_urlsafe(32)
+    now = _utc_now()
+    expires = now + timedelta(hours=SESSION_HOURS)
+    db.execute(
+        "INSERT INTO auth_sessions (session_hash, user_id, csrf_token, created_at, expires_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (_session_digest(raw_token), user_id, csrf_token, now.isoformat(), expires.isoformat()),
+    )
+    response.set_cookie(
+        SESSION_COOKIE,
+        raw_token,
+        max_age=SESSION_HOURS * 60 * 60,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+    return csrf_token
+
+
+class BootstrapAdmin(BaseModel):
+    email: str
+    display_name: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserCreate(BaseModel):
+    email: str
+    display_name: str
+    password: str
+    role: Literal["Admin", "Analyst"] = "Analyst"
+
+
+@app.get("/api/auth/status")
+def auth_status():
+    with get_db() as db:
+        user_count = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    return {"setup_required": user_count == 0}
+
+
+@app.post("/api/auth/bootstrap", status_code=201)
+def bootstrap_admin(payload: BootstrapAdmin, response: Response):
+    email = payload.email.strip().lower()
+    name = payload.display_name.strip()
+    if "@" not in email or not name or len(payload.password) < 12:
+        raise HTTPException(status_code=400, detail="Enter a valid email, display name, and password of at least 12 characters.")
+    with get_db() as db:
+        if db.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
+            raise HTTPException(status_code=409, detail="Initial administrator is already configured.")
+        inserted = db.execute(
+            "INSERT INTO users (email, display_name, password_hash, role, created_at) "
+            "VALUES (?, ?, ?, 'Admin', ?) RETURNING user_id, email, display_name, role",
+            (email, name, hash_password(payload.password), _utc_now().isoformat()),
+        ).fetchone()
+        # Existing unowned cases and their related records become the first
+        # administrator's workspace, preserving the pre-login demo data.
+        db.execute("UPDATE investigations SET owner_id=? WHERE owner_id IS NULL", (inserted["user_id"],))
+        csrf_token = _start_session(db, inserted["user_id"], response)
+    return {"user": _public_user(inserted), "csrf_token": csrf_token}
+
+
+@app.post("/api/auth/login")
+def login(payload: LoginRequest, request: Request, response: Response):
+    ip = request.client.host if request.client else "unknown"
+    now = _utc_now().timestamp()
+    start, count = login_attempts.get(ip, (now, 0))
+    if now - start > 900:
+        start, count = now, 0
+    if count >= 5:
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again in 15 minutes.")
+    with get_db() as db:
+        row = db.execute(
+            "SELECT user_id, email, display_name, password_hash, role FROM users "
+            "WHERE lower(email)=? AND is_active=1",
+            (payload.email.strip().lower(),),
+        ).fetchone()
+        valid_password = row is not None and verify_password(row["password_hash"], payload.password)
+        if not valid_password:
+            login_attempts[ip] = (start, count + 1)
+            raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+        login_attempts.pop(ip, None)
+        csrf_token = _start_session(db, row["user_id"], response)
+    return {"user": _public_user(row), "csrf_token": csrf_token}
+
+
+@app.get("/api/auth/me")
+def current_user(request: Request):
+    return {"user": request.state.user, "csrf_token": request.state.csrf_token}
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request, response: Response):
+    with get_db() as db:
+        db.execute("DELETE FROM auth_sessions WHERE session_hash=?", (request.state.session_hash,))
+    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, secure=COOKIE_SECURE, samesite="lax")
+    return {"message": "Logged out."}
+
+
+@app.get("/api/auth/users")
+def list_users(request: Request):
+    if request.state.user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Administrator role required.")
+    with get_db() as db:
+        rows = db.execute("SELECT user_id, email, display_name, role, is_active, created_at FROM users ORDER BY user_id").fetchall()
+    return [dict(row) for row in rows]
+
+
+@app.post("/api/auth/users", status_code=201)
+def create_user(payload: UserCreate, request: Request):
+    if request.state.user["role"] != "Admin":
+        raise HTTPException(status_code=403, detail="Administrator role required.")
+    email = payload.email.strip().lower()
+    name = payload.display_name.strip()
+    if "@" not in email or not name or len(payload.password) < 12:
+        raise HTTPException(status_code=400, detail="Enter a valid email, display name, and password of at least 12 characters.")
+    with get_db() as db:
+        if db.execute("SELECT 1 FROM users WHERE lower(email)=?", (email,)).fetchone():
+            raise HTTPException(status_code=409, detail="An account with that email already exists.")
+        row = db.execute(
+            "INSERT INTO users (email, display_name, password_hash, role, created_at) "
+            "VALUES (?, ?, ?, ?, ?) RETURNING user_id, email, display_name, role",
+            (email, name, hash_password(payload.password), payload.role, _utc_now().isoformat()),
+        ).fetchone()
+    return _public_user(row)
 
 
 def record_event(db, event_type, description, case_id=None, occurred_at=None):
@@ -239,6 +459,13 @@ class InvestigationStatusUpdate(BaseModel):
     status: str
 
 
+def _scope_clause(request, alias="i"):
+    user = request.state.user
+    if user["role"] == "Admin":
+        return "1=1", []
+    return f"{alias}.owner_id = ?", [user["user_id"]]
+
+
 @app.get("/")
 def home():
     return {
@@ -257,19 +484,33 @@ def health():
 
 
 @app.get("/api/cases")
-def get_cases():
+def get_cases(
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    status: Optional[Literal["Pending", "Analyzing", "Completed"]] = None,
+    severity: Optional[Literal["Unassigned", "Low", "Medium", "High", "Critical"]] = None,
+):
+    scope, params = _scope_clause(request, "investigations")
+    filters = [scope]
+    if status:
+        filters.append("status = ?")
+        params.append(status)
+    if severity:
+        filters.append("severity = ?")
+        params.append(severity)
+    params.extend([limit, offset])
     with get_db() as db:
         rows = db.execute("""
             SELECT case_id, name, investigator, date, status, severity
             FROM investigations
-            ORDER BY row_id DESC
-        """).fetchall()
+            WHERE """ + " AND ".join(filters) + " ORDER BY row_id DESC LIMIT ? OFFSET ?", params).fetchall()
 
     return [dict(row) for row in rows]
 
 
 @app.post("/api/cases", status_code=201)
-def create_case(case: InvestigationCreate):
+def create_case(case: InvestigationCreate, request: Request):
     name = case.name.strip()
 
     if not name:
@@ -288,8 +529,8 @@ def create_case(case: InvestigationCreate):
 
         db.execute("""
             INSERT INTO investigations
-            (case_id, name, investigator, date, status, severity)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (case_id, name, investigator, date, status, severity, owner_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             case_id,
             name,
@@ -297,6 +538,7 @@ def create_case(case: InvestigationCreate):
             date,
             "Pending",
             case.severity,
+            request.state.user["user_id"],
         ))
         record_event(db, "Investigation created", f"Created investigation: {name}", case_id)
 
@@ -310,51 +552,57 @@ def create_case(case: InvestigationCreate):
 
 
 @app.patch("/api/cases/{case_id}")
-def update_case_status(case_id: str, update: InvestigationStatusUpdate):
+def update_case_status(case_id: str, update: InvestigationStatusUpdate, request: Request):
     if update.status not in {"Pending", "Analyzing", "Completed"}:
         raise HTTPException(status_code=400, detail="Status must be Pending, Analyzing, or Completed.")
     with get_db() as db:
-        case = db.execute("SELECT name, status FROM investigations WHERE case_id = ?", (case_id,)).fetchone()
+        scope, params = _scope_clause(request, "investigations")
+        case = db.execute(f"SELECT name, status FROM investigations WHERE case_id = ? AND {scope}", [case_id, *params]).fetchone()
         if not case:
             raise HTTPException(status_code=404, detail="Investigation not found.")
-        db.execute("UPDATE investigations SET status = ? WHERE case_id = ?", (update.status, case_id))
+        db.execute(f"UPDATE investigations SET status = ? WHERE case_id = ? AND {scope}", [update.status, case_id, *params])
         record_event(db, "Investigation status updated", f"Changed {case['name']} from {case['status']} to {update.status}.", case_id)
         updated = db.execute("""
             SELECT case_id, name, investigator, date, status, severity
-            FROM investigations WHERE case_id = ?
-        """, (case_id,)).fetchone()
+            FROM investigations WHERE case_id = ? AND """ + scope,
+            [case_id, *params]).fetchone()
     return dict(updated)
 
 
 @app.get("/api/dashboard/counts")
-def dashboard_counts():
+def dashboard_counts(request: Request):
+    scope, params = _scope_clause(request, "i")
     with get_db() as db:
         return {
-            "investigations": db.execute("SELECT COUNT(*) FROM investigations").fetchone()[0],
-            "findings": db.execute("SELECT COUNT(*) FROM findings").fetchone()[0],
-            "evidence": db.execute("SELECT COUNT(*) FROM evidence").fetchone()[0],
-            "completed": db.execute("SELECT COUNT(*) FROM investigations WHERE lower(status) = 'completed'").fetchone()[0],
+            "investigations": db.execute(f"SELECT COUNT(*) FROM investigations i WHERE {scope}", params).fetchone()[0],
+            "findings": db.execute(f"SELECT COUNT(*) FROM findings f JOIN investigations i ON i.case_id=f.case_id WHERE {scope}", params).fetchone()[0],
+            "evidence": db.execute(f"SELECT COUNT(*) FROM evidence e JOIN investigations i ON i.case_id=e.case_id WHERE {scope}", params).fetchone()[0],
+            "completed": db.execute(f"SELECT COUNT(*) FROM investigations i WHERE lower(i.status)='completed' AND {scope}", params).fetchone()[0],
         }
 
 
 @app.get("/api/evidence")
-def get_evidence():
+def get_evidence(request: Request, limit: int = Query(default=50, ge=1, le=100), offset: int = Query(default=0, ge=0)):
+    scope, params = _scope_clause(request, "i")
+    params.extend([limit, offset])
     with get_db() as db:
         rows = db.execute("""
             SELECT e.evidence_id, e.case_id, e.original_name, e.sha256, e.size_bytes,
                    e.uploaded_at, i.name AS case_name
-            FROM evidence e LEFT JOIN investigations i ON i.case_id = e.case_id
-            ORDER BY e.evidence_id DESC
-        """).fetchall()
+            FROM evidence e JOIN investigations i ON i.case_id = e.case_id
+            WHERE """ + scope + " ORDER BY e.evidence_id DESC LIMIT ? OFFSET ?", params).fetchall()
     return [dict(row) for row in rows]
 
 
 @app.get("/api/evidence/{evidence_id}/download")
-def download_evidence(evidence_id: int):
+def download_evidence(evidence_id: int, request: Request):
+    scope, params = _scope_clause(request, "i")
     with get_db() as db:
         row = db.execute(
-            "SELECT original_name, stored_name FROM evidence WHERE evidence_id = ?",
-            (evidence_id,),
+            "SELECT e.original_name, e.stored_name FROM evidence e "
+            "JOIN investigations i ON i.case_id=e.case_id "
+            f"WHERE e.evidence_id = ? AND {scope}",
+            [evidence_id, *params],
         ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Evidence item not found.")
@@ -369,13 +617,15 @@ def download_evidence(evidence_id: int):
 
 
 @app.post("/api/evidence", status_code=201)
-async def upload_evidence(file: UploadFile = File(...), case_id: str = Form(default="")):
+async def upload_evidence(request: Request, file: UploadFile = File(...), case_id: str = Form(...)):
     original_name = Path(file.filename or "evidence.bin").name
     content = await file.read(MAX_EVIDENCE_BYTES + 1)
     await file.close()
     if len(content) > MAX_EVIDENCE_BYTES:
         raise HTTPException(status_code=413, detail="Evidence file exceeds the 25 MB upload limit.")
-    case_id = case_id.strip() or None
+    case_id = case_id.strip()
+    if not case_id:
+        raise HTTPException(status_code=400, detail="Evidence must be linked to an investigation.")
     stored_name = f"{uuid.uuid4().hex}_{original_name}"
     digest = hashlib.sha256(content).hexdigest()
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
@@ -383,7 +633,8 @@ async def upload_evidence(file: UploadFile = File(...), case_id: str = Form(defa
     uploaded_at = datetime.now().astimezone().isoformat(timespec="seconds")
     try:
         with get_db() as db:
-            if case_id and not db.execute("SELECT 1 FROM investigations WHERE case_id = ?", (case_id,)).fetchone():
+            scope, params = _scope_clause(request, "investigations")
+            if not db.execute(f"SELECT 1 FROM investigations WHERE case_id = ? AND {scope}", [case_id, *params]).fetchone():
                 raise HTTPException(status_code=404, detail="Investigation not found.")
             inserted = db.execute("""
                 INSERT INTO evidence (case_id, original_name, stored_name, sha256, size_bytes, uploaded_at)
@@ -411,27 +662,31 @@ class FindingStatusUpdate(BaseModel):
 
 
 @app.get("/api/findings")
-def get_findings():
+def get_findings(request: Request, limit: int = Query(default=50, ge=1, le=100), offset: int = Query(default=0, ge=0)):
+    scope, params = _scope_clause(request, "i")
+    params.extend([limit, offset])
     with get_db() as db:
         rows = db.execute("""
             SELECT f.finding_id, f.case_id, f.title, f.description, f.severity, f.status,
                    f.created_at, i.name AS case_name
-            FROM findings f LEFT JOIN investigations i ON i.case_id = f.case_id
-            ORDER BY f.finding_id DESC
-        """).fetchall()
+            FROM findings f JOIN investigations i ON i.case_id = f.case_id
+            WHERE """ + scope + " ORDER BY f.finding_id DESC LIMIT ? OFFSET ?", params).fetchall()
     return [dict(row) for row in rows]
 
 
 @app.post("/api/findings", status_code=201)
-def create_finding(finding: FindingCreate):
+def create_finding(finding: FindingCreate, request: Request):
     title = finding.title.strip()
     description = finding.description.strip()
     if not title or not description:
         raise HTTPException(status_code=400, detail="Finding title and description are required.")
     if finding.severity not in {"Low", "Medium", "High", "Critical"}:
         raise HTTPException(status_code=400, detail="Severity must be Low, Medium, High, or Critical.")
+    if not finding.case_id:
+        raise HTTPException(status_code=400, detail="Finding must be linked to an investigation.")
     with get_db() as db:
-        if finding.case_id and not db.execute("SELECT 1 FROM investigations WHERE case_id = ?", (finding.case_id,)).fetchone():
+        scope, params = _scope_clause(request, "investigations")
+        if not db.execute(f"SELECT 1 FROM investigations WHERE case_id = ? AND {scope}", [finding.case_id, *params]).fetchone():
             raise HTTPException(status_code=404, detail="Investigation not found.")
         created_at = datetime.now().astimezone().isoformat(timespec="seconds")
         inserted = db.execute("""
@@ -448,11 +703,15 @@ def create_finding(finding: FindingCreate):
 
 
 @app.patch("/api/findings/{finding_id}")
-def update_finding_status(finding_id: int, update: FindingStatusUpdate):
+def update_finding_status(finding_id: int, update: FindingStatusUpdate, request: Request):
     if update.status not in {"Open", "Resolved"}:
         raise HTTPException(status_code=400, detail="Status must be Open or Resolved.")
     with get_db() as db:
-        finding = db.execute("SELECT * FROM findings WHERE finding_id = ?", (finding_id,)).fetchone()
+        scope, params = _scope_clause(request, "i")
+        finding = db.execute(
+            "SELECT f.* FROM findings f JOIN investigations i ON i.case_id=f.case_id "
+            f"WHERE f.finding_id = ? AND {scope}", [finding_id, *params]
+        ).fetchone()
         if not finding:
             raise HTTPException(status_code=404, detail="Finding not found.")
         db.execute("UPDATE findings SET status = ? WHERE finding_id = ?", (update.status, finding_id))
@@ -462,16 +721,27 @@ def update_finding_status(finding_id: int, update: FindingStatusUpdate):
 
 
 @app.get("/api/analysis")
-def get_analysis_runs():
-    with get_db() as db:
-        rows = db.execute("""
-            SELECT r.run_id, r.evidence_id, r.summary, r.created_at, e.original_name,
-                   i.indicator_id, i.ordinal, i.indicator_type, i.value, i.reason
-            FROM analysis_runs r
+def get_analysis_runs(request: Request, limit: int = Query(default=50, ge=1, le=100), offset: int = Query(default=0, ge=0)):
+    scope, params = _scope_clause(request, "c")
+    params.extend([limit, offset])
+    query = f"""
+        WITH scoped_runs AS (
+            SELECT r.run_id FROM analysis_runs r
             JOIN evidence e ON e.evidence_id = r.evidence_id
-            LEFT JOIN analysis_indicators i ON i.run_id = r.run_id
-            ORDER BY r.run_id DESC, i.ordinal
-        """).fetchall()
+            JOIN investigations c ON c.case_id = e.case_id
+            WHERE {scope} ORDER BY r.run_id DESC LIMIT ? OFFSET ?
+        )
+        SELECT r.run_id, r.evidence_id, r.summary, r.created_at, e.original_name,
+               ai.indicator_id, ai.ordinal, ai.indicator_type, ai.value, ai.reason
+        FROM analysis_runs r
+        JOIN evidence e ON e.evidence_id = r.evidence_id
+        JOIN investigations c ON c.case_id = e.case_id
+        LEFT JOIN analysis_indicators ai ON ai.run_id = r.run_id
+        WHERE r.run_id IN (SELECT run_id FROM scoped_runs)
+        ORDER BY r.run_id DESC, ai.ordinal
+    """
+    with get_db() as db:
+        rows = db.execute(query, params).fetchall()
     runs = {}
     for row in rows:
         run = runs.get(row["run_id"])
@@ -497,11 +767,15 @@ def get_analysis_runs():
 
 
 @app.post("/api/evidence/{evidence_id}/analyze")
-def analyze_evidence(evidence_id: int):
+def analyze_evidence(evidence_id: int, request: Request):
     ipv4_pattern = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
     suspicious_terms = ("mimikatz", "powershell -enc", "encodedcommand", "credential dump", "rundll32")
     with get_db() as db:
-        evidence = db.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,)).fetchone()
+        scope, params = _scope_clause(request, "i")
+        evidence = db.execute(
+            "SELECT e.* FROM evidence e JOIN investigations i ON i.case_id=e.case_id "
+            f"WHERE e.evidence_id = ? AND {scope}", [evidence_id, *params]
+        ).fetchone()
         if not evidence:
             raise HTTPException(status_code=404, detail="Evidence item not found.")
         file_path = EVIDENCE_DIR / evidence["stored_name"]
@@ -533,27 +807,34 @@ def analyze_evidence(evidence_id: int):
 
 
 @app.get("/api/timeline")
-def get_timeline(case_id: Optional[str] = None):
+def get_timeline(
+    request: Request,
+    case_id: Optional[str] = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    scope, params = _scope_clause(request, "i")
+    filters = [scope]
+    if case_id:
+        filters.append("t.case_id = ?")
+        params.append(case_id)
+    params.extend([limit, offset])
     with get_db() as db:
-        query = """
+        rows = db.execute("""
             SELECT t.event_id, t.case_id, t.event_type, t.description, t.occurred_at,
                    i.name AS case_name
-            FROM timeline_events t LEFT JOIN investigations i ON i.case_id = t.case_id
-        """
-        if case_id:
-            rows = db.execute(query + " WHERE t.case_id = ? ORDER BY t.event_id DESC", (case_id,)).fetchall()
-        else:
-            rows = db.execute(query + " ORDER BY t.event_id DESC").fetchall()
+            FROM timeline_events t JOIN investigations i ON i.case_id = t.case_id
+            WHERE """ + " AND ".join(filters) + " ORDER BY t.event_id DESC LIMIT ? OFFSET ?", params).fetchall()
     return [dict(row) for row in rows]
 
 
 @app.get("/api/reports")
-def get_report_data():
+def get_report_data(request: Request):
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-        "investigations": get_cases(),
-        "evidence": get_evidence(),
-        "findings": get_findings(),
-        "timeline": get_timeline(),
-        "analysis_runs": get_analysis_runs(),
+        "investigations": get_cases(request, 100, 0, None, None),
+        "evidence": get_evidence(request, 100, 0),
+        "findings": get_findings(request, 100, 0),
+        "timeline": get_timeline(request, None, 100, 0),
+        "analysis_runs": get_analysis_runs(request, 100, 0),
     }

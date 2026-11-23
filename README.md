@@ -40,7 +40,9 @@ On Windows PowerShell, activate the environment with
 The API runs at <http://127.0.0.1:8000>. Its interactive documentation is at
 <http://127.0.0.1:8000/docs>. The first run creates the SQLite database and
 sample investigations automatically. Uploaded evidence is saved in the local
-`evidence/` folder.
+`evidence/` folder. On first use, the web app prompts you to create the initial
+administrator account. Authentication, session, and viva demo details are in
+[docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
 To use a local `.env` file, copy `.env.example` to `.env`, fill in
 `DATABASE_URL` if needed, then export its values before starting the API:

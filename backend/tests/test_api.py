@@ -29,8 +29,114 @@ client = TestClient(app)
 
 
 class TestCyberTriageAPI(unittest.TestCase):
+    admin_email = "admin@example.test"
+    admin_password = "TestPassword!ForCyberTriage"
+
+    def setUp(self):
+        if client.get("/api/auth/me").status_code == 200:
+            return
+        status = client.get("/api/auth/status").json()
+        if status["setup_required"]:
+            response = client.post(
+                "/api/auth/bootstrap",
+                json={
+                    "email": self.admin_email,
+                    "display_name": "Test Administrator",
+                    "password": self.admin_password,
+                },
+            )
+        else:
+            response = client.post(
+                "/api/auth/login",
+                json={"email": self.admin_email, "password": self.admin_password},
+            )
+        self.assertEqual(response.status_code, 201 if status["setup_required"] else 200)
+        client.headers.update({"X-CSRF-Token": response.json()["csrf_token"]})
+
     def unique_name(self, prefix):
         return f"{prefix}-{uuid.uuid4().hex[:10]}"
+
+    def test_api_requires_login(self):
+        anonymous = TestClient(app)
+        response = anonymous.get("/api/cases")
+        self.assertEqual(response.status_code, 401)
+
+    def test_password_hash_session_cookie_and_logout(self):
+        with get_db() as db:
+            stored = db.execute(
+                "SELECT password_hash FROM users WHERE email=?", (self.admin_email,)
+            ).fetchone()["password_hash"]
+        self.assertTrue(stored.startswith("pbkdf2_sha256$600000$"))
+        self.assertNotIn(self.admin_password, stored)
+
+        session_client = TestClient(app)
+        response = session_client.post(
+            "/api/auth/login",
+            json={"email": self.admin_email, "password": self.admin_password},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("httponly", response.headers["set-cookie"].lower())
+        self.assertIn("samesite=lax", response.headers["set-cookie"].lower())
+        session_client.headers.update({"X-CSRF-Token": response.json()["csrf_token"]})
+        self.assertEqual(session_client.get("/api/auth/me").status_code, 200)
+        self.assertEqual(session_client.post("/api/auth/logout").status_code, 200)
+        self.assertEqual(session_client.get("/api/cases").status_code, 401)
+
+    def test_analyst_role_and_case_ownership(self):
+        analyst_one = self.unique_name("one") + "@example.test"
+        analyst_two = self.unique_name("two") + "@example.test"
+        for email in (analyst_one, analyst_two):
+            created = client.post(
+                "/api/auth/users",
+                json={"email": email, "display_name": email, "password": "AnalystPassword!123"},
+            )
+            self.assertEqual(created.status_code, 201)
+
+        first = TestClient(app)
+        login_one = first.post(
+            "/api/auth/login",
+            json={"email": analyst_one, "password": "AnalystPassword!123"},
+        )
+        first.headers.update({"X-CSRF-Token": login_one.json()["csrf_token"]})
+        case = first.post("/api/cases", json={"name": "Analyst One private case"})
+        self.assertEqual(case.status_code, 201)
+        case_id = case.json()["case_id"]
+        self.assertEqual(first.get("/api/auth/users").status_code, 403)
+        evidence = first.post(
+            "/api/evidence",
+            data={"case_id": case_id},
+            files={"file": ("private.txt", b"analyst one evidence", "text/plain")},
+        )
+        self.assertEqual(evidence.status_code, 201)
+
+        second = TestClient(app)
+        login_two = second.post(
+            "/api/auth/login",
+            json={"email": analyst_two, "password": "AnalystPassword!123"},
+        )
+        second.headers.update({"X-CSRF-Token": login_two.json()["csrf_token"]})
+        cases = second.get("/api/cases").json()
+        self.assertFalse(any(row["case_id"] == case_id for row in cases))
+        evidence_rows = second.get("/api/evidence").json()
+        self.assertFalse(any(row["evidence_id"] == evidence.json()["evidence_id"] for row in evidence_rows))
+        self.assertEqual(
+            second.get(f"/api/evidence/{evidence.json()['evidence_id']}/download").status_code,
+            404,
+        )
+        forbidden_update = second.patch(
+            f"/api/cases/{case_id}", json={"status": "Completed"}
+        )
+        self.assertEqual(forbidden_update.status_code, 404)
+
+    def test_mutating_request_requires_csrf_header(self):
+        no_csrf = TestClient(app)
+        login = no_csrf.post(
+            "/api/auth/login",
+            json={"email": self.admin_email, "password": self.admin_password},
+        )
+        self.assertEqual(login.status_code, 200)
+        response = no_csrf.post("/api/cases", json={"name": "CSRF check"})
+        self.assertEqual(response.status_code, 403)
 
     def test_health_endpoint(self):
         response = client.get("/api/health")
@@ -189,6 +295,44 @@ class TestCyberTriageAPI(unittest.TestCase):
         self.assertNotIn("indicators_json", columns_after)
         self.assertEqual(counts_after, counts_before)
         self.assertEqual(indicators_after, indicators_before)
+        self.assertEqual(fk_errors, [])
+
+    def test_legacy_case_migration_preserves_data_and_adds_owner_column(self):
+        db_path = _test_root / "legacy-ownership.db"
+        with sqlite3.connect(db_path) as legacy:
+            legacy.execute("""
+                CREATE TABLE investigations (
+                    row_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    case_id TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    investigator TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    severity TEXT NOT NULL
+                )
+            """)
+            legacy.execute(
+                "INSERT INTO investigations VALUES (1, 'CASE-LEGACY-1', 'Preserved case', 'Analyst', '01 Nov 2026', 'Pending', 'Medium')"
+            )
+
+        env = os.environ.copy()
+        env["DATABASE_URL"] = "sqlite:///" + db_path.as_posix()
+        subprocess.run(
+            [sys.executable, "-c", "from app.database import initialize_schema; initialize_schema()"],
+            cwd=Path(__file__).resolve().parents[1],
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        with sqlite3.connect(db_path) as migrated:
+            columns = {row[1] for row in migrated.execute("PRAGMA table_info(investigations)")}
+            preserved = migrated.execute(
+                "SELECT case_id, name FROM investigations WHERE row_id=1"
+            ).fetchone()
+            fk_errors = migrated.execute("PRAGMA foreign_key_check").fetchall()
+        self.assertIn("owner_id", columns)
+        self.assertEqual(preserved, ("CASE-LEGACY-1", "Preserved case"))
         self.assertEqual(fk_errors, [])
 
 
